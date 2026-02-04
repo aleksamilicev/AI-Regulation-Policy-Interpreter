@@ -1,0 +1,36 @@
+# ==== Visual Studio ====
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# ==== Build folders ====
+bin/
+obj/
+Debug/
+Release/
+x64/
+x86/
+
+# ==== Service Fabric / Diagnostics ====
+*.sfproj.user
+FabricApplicationPackageRoot/**/pkg/
+FabricApplicationPackageRoot/**/Debug/
+FabricApplicationPackageRoot/**/Release/
+
+# ==== Logs ====
+*.log
+
+# ==== NuGet ====
+packages/
+*.nupkg
+*.snupkg
+
+# ==== Rider/VSCode (ako ikad otvoriš) ====
+.idea/
+.vscode/
+
+# ==== OS ====
+.DS_Store
+Thumbs.db
