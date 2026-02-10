@@ -42,6 +42,7 @@
     <ProjectReference Include="Bank\Bank.csproj" />
     <ProjectReference Include="Bookstore\Bookstore.csproj" />
     <ProjectReference Include="Coordinator\Coordinator.csproj" />
+    <ProjectReference Include="DocumentService\DocumentService.csproj" />
     <ProjectReference Include="Validator\Validator.csproj" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />

@@ -15,6 +15,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Bookstore", "Bookstore\Book
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Coordinator", "Coordinator\Coordinator.csproj", "{8D1343A8-3A5F-424D-8A94-3156773E14DE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "DocumentService", "DocumentService\DocumentService.csproj", "{DCF533C7-E96A-404D-B51A-29E6D36F3384}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -75,6 +77,14 @@ Global
 		{8D1343A8-3A5F-424D-8A94-3156773E14DE}.Release|Any CPU.Build.0 = Release|Any CPU
 		{8D1343A8-3A5F-424D-8A94-3156773E14DE}.Release|x64.ActiveCfg = Release|Any CPU
 		{8D1343A8-3A5F-424D-8A94-3156773E14DE}.Release|x64.Build.0 = Release|Any CPU
+		{DCF533C7-E96A-404D-B51A-29E6D36F3384}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{DCF533C7-E96A-404D-B51A-29E6D36F3384}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{DCF533C7-E96A-404D-B51A-29E6D36F3384}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{DCF533C7-E96A-404D-B51A-29E6D36F3384}.Debug|x64.Build.0 = Debug|Any CPU
+		{DCF533C7-E96A-404D-B51A-29E6D36F3384}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{DCF533C7-E96A-404D-B51A-29E6D36F3384}.Release|Any CPU.Build.0 = Release|Any CPU
+		{DCF533C7-E96A-404D-B51A-29E6D36F3384}.Release|x64.ActiveCfg = Release|Any CPU
+		{DCF533C7-E96A-404D-B51A-29E6D36F3384}.Release|x64.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
