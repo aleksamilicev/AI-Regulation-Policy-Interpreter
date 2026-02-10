@@ -1,8 +1,17 @@
 ﻿@{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Home";
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="text-center mt-5">
+    <h1 class="display-4">📚 AI Document Management System</h1>
+    <p class="lead">Upload documents, parse them, and ask questions</p>
+
+    <div class="mt-5">
+        <a asp-action="Upload" class="btn btn-primary btn-lg m-2">
+            📤 Upload Document
+        </a>
+        <a asp-action="Documents" class="btn btn-success btn-lg m-2">
+            📄 View Documents
+        </a>
+    </div>
 </div>

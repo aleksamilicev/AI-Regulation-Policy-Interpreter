@@ -1,0 +1,75 @@
+﻿@using Client.Models
+@model List<DocumentMetadata>
+@{
+    ViewData["Title"] = "Documents";
+}
+
+<div class="container mt-4">
+    <h2>📄 Uploaded Documents</h2>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">@ViewBag.Error</div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+
+    <table class="table table-striped mt-4">
+        <thead class="table-dark">
+            <tr>
+                <th>Title</th>
+                <th>Extension</th>
+                <th>Uploaded At</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Count == 0)
+            {
+                <tr>
+                    <td colspan="5" class="text-center">No documents uploaded yet</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var doc in Model)
+                {
+                    <tr>
+                        <td>@doc.Title</td>
+                        <td><span class="badge bg-info">@doc.Extension</span></td>
+                        <td>@doc.UploadedAt.ToString("g")</td>
+                        <td>
+                            @if (doc.IsParsed)
+                            {
+                                <span class="badge bg-success">✓ Parsed</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning">Not Parsed</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!doc.IsParsed)
+                            {
+                                <form method="post" asp-action="Parse" asp-route-id="@doc.Id" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-primary">Parse</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <a asp-action="Chunks" asp-route-id="@doc.Id" class="btn btn-sm btn-info">View Chunks</a>
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <a asp-action="Upload" class="btn btn-primary">Upload New</a>
+    <a asp-action="Index" class="btn btn-secondary">Home</a>
+</div>
