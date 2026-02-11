@@ -21,26 +21,33 @@ namespace DocumentService
 
         protected override IEnumerable<ServiceReplicaListener> CreateServiceReplicaListeners()
         {
-            return new ServiceReplicaListener[]
+            return new[]
             {
-                new ServiceReplicaListener(serviceContext =>
-                    new KestrelCommunicationListener(serviceContext, (url, listener) =>
-                    {
-                        return new WebHostBuilder()
-                            .UseKestrel()
-                            .ConfigureServices(services =>
-                            {
-                                services.AddSingleton<StatefulServiceContext>(serviceContext);
-                                services.AddSingleton<IReliableStateManager>(this.StateManager);
-                            })
-                            .UseContentRoot(Directory.GetCurrentDirectory())
-                            .UseStartup<Startup>()
-                            .UseServiceFabricIntegration(listener, ServiceFabricIntegrationOptions.UseUniqueServiceUrl)
-                            .UseUrls(url)
-                            .Build();
-                    }))
-            };
+        new ServiceReplicaListener(serviceContext =>
+            new KestrelCommunicationListener(
+                serviceContext,
+                "ServiceEndpoint",
+                (url, listener) =>
+                {
+                    ServiceEventSource.Current.ServiceMessage(serviceContext, $"Starting Kestrel on {url}");
+
+                    return new WebHostBuilder()
+                        .UseKestrel()
+                        .ConfigureServices(services =>
+                        {
+                            services.AddSingleton<StatefulServiceContext>(serviceContext);
+                            services.AddSingleton<IReliableStateManager>(this.StateManager);
+                            services.AddControllers();
+                        })
+                        .UseContentRoot(Directory.GetCurrentDirectory())
+                        .UseStartup<Startup>()
+                        .UseServiceFabricIntegration(listener, ServiceFabricIntegrationOptions.None)
+                        .UseUrls(url)
+                        .Build();
+                }))
+    };
         }
+
 
         protected override async Task RunAsync(CancellationToken cancellationToken)
         {

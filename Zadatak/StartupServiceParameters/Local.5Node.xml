@@ -4,16 +4,6 @@
     <Parameter Name="DocumentService_PartitionCount" Value="1" />
     <Parameter Name="DocumentService_MinReplicaSetSize" Value="3" />
     <Parameter Name="DocumentService_TargetReplicaSetSize" Value="3" />
-    <Parameter Name="Coordinator_PartitionCount" Value="1" />
-    <Parameter Name="Coordinator_MinReplicaSetSize" Value="3" />
-    <Parameter Name="Coordinator_TargetReplicaSetSize" Value="3" />
-    <Parameter Name="Bookstore_PartitionCount" Value="1" />
-    <Parameter Name="Bookstore_MinReplicaSetSize" Value="3" />
-    <Parameter Name="Bookstore_TargetReplicaSetSize" Value="3" />
-    <Parameter Name="Bank_PartitionCount" Value="1" />
-    <Parameter Name="Bank_MinReplicaSetSize" Value="3" />
-    <Parameter Name="Bank_TargetReplicaSetSize" Value="3" />
-    <Parameter Name="Validator_InstanceCount" Value="1" />
     <Parameter Name="Client_InstanceCount" Value="1" />
   </Parameters>
 </StartupServices>

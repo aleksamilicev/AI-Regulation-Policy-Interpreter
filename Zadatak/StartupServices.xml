@@ -4,16 +4,6 @@
     <Parameter Name="DocumentService_MinReplicaSetSize" DefaultValue="3" />
     <Parameter Name="DocumentService_PartitionCount" DefaultValue="1" />
     <Parameter Name="DocumentService_TargetReplicaSetSize" DefaultValue="3" />
-    <Parameter Name="Coordinator_MinReplicaSetSize" DefaultValue="3" />
-    <Parameter Name="Coordinator_PartitionCount" DefaultValue="1" />
-    <Parameter Name="Coordinator_TargetReplicaSetSize" DefaultValue="3" />
-    <Parameter Name="Bookstore_MinReplicaSetSize" DefaultValue="3" />
-    <Parameter Name="Bookstore_PartitionCount" DefaultValue="1" />
-    <Parameter Name="Bookstore_TargetReplicaSetSize" DefaultValue="3" />
-    <Parameter Name="Bank_MinReplicaSetSize" DefaultValue="3" />
-    <Parameter Name="Bank_PartitionCount" DefaultValue="1" />
-    <Parameter Name="Bank_TargetReplicaSetSize" DefaultValue="3" />
-    <Parameter Name="Validator_InstanceCount" DefaultValue="-1" />
     <Parameter Name="Client_InstanceCount" DefaultValue="-1" />
   </Parameters>
   <Services>
@@ -26,26 +16,6 @@
       <StatefulService ServiceTypeName="DocumentServiceType" TargetReplicaSetSize="[DocumentService_TargetReplicaSetSize]" MinReplicaSetSize="[DocumentService_MinReplicaSetSize]">
         <UniformInt64Partition PartitionCount="[DocumentService_PartitionCount]" LowKey="-9223372036854775808" HighKey="9223372036854775807" />
       </StatefulService>
-    </Service>
-    <Service Name="Coordinator" ServicePackageActivationMode="ExclusiveProcess">
-      <StatefulService ServiceTypeName="CoordinatorType" TargetReplicaSetSize="[Coordinator_TargetReplicaSetSize]" MinReplicaSetSize="[Coordinator_MinReplicaSetSize]">
-        <UniformInt64Partition PartitionCount="[Coordinator_PartitionCount]" LowKey="-9223372036854775808" HighKey="9223372036854775807" />
-      </StatefulService>
-    </Service>
-    <Service Name="Bookstore" ServicePackageActivationMode="ExclusiveProcess">
-      <StatefulService ServiceTypeName="BookstoreType" TargetReplicaSetSize="[Bookstore_TargetReplicaSetSize]" MinReplicaSetSize="[Bookstore_MinReplicaSetSize]">
-        <UniformInt64Partition PartitionCount="[Bookstore_PartitionCount]" LowKey="-9223372036854775808" HighKey="9223372036854775807" />
-      </StatefulService>
-    </Service>
-    <Service Name="Bank" ServicePackageActivationMode="ExclusiveProcess">
-      <StatefulService ServiceTypeName="BankType" TargetReplicaSetSize="[Bank_TargetReplicaSetSize]" MinReplicaSetSize="[Bank_MinReplicaSetSize]">
-        <UniformInt64Partition PartitionCount="[Bank_PartitionCount]" LowKey="-9223372036854775808" HighKey="9223372036854775807" />
-      </StatefulService>
-    </Service>
-    <Service Name="Validator" ServicePackageActivationMode="ExclusiveProcess">
-      <StatelessService ServiceTypeName="ValidatorType" InstanceCount="[Validator_InstanceCount]">
-        <SingletonPartition />
-      </StatelessService>
     </Service>
     <Service Name="Client" ServicePackageActivationMode="ExclusiveProcess">
       <StatelessService ServiceTypeName="ClientType" InstanceCount="[Client_InstanceCount]">
