@@ -1,0 +1,36 @@
+﻿@{
+    ViewData["Title"] = "Add New Version";
+}
+
+<div class="container mt-4">
+    <h2>➕ Add New Version</h2>
+    <p class="text-muted">Document ID: @ViewBag.DocumentId</p>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">@ViewBag.Error</div>
+    }
+
+    <form method="post" enctype="multipart/form-data" class="mt-4">
+        <div class="form-group mb-3">
+            <label>Select File</label>
+            <input type="file" name="file" class="form-control" accept=".pdf,.docx,.txt" required />
+            <small class="form-text text-muted">Accepted formats: PDF, DOCX, TXT</small>
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Valid From</label>
+            <input type="datetime-local" name="validFrom" class="form-control" required />
+            <small class="form-text text-muted">Start date of this version's validity</small>
+        </div>
+
+        <div class="form-group mb-3">
+            <label>Valid To (Optional)</label>
+            <input type="datetime-local" name="validTo" class="form-control" />
+            <small class="form-text text-muted">End date (leave empty for current version)</small>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Upload Version</button>
+        <a asp-action="Versions" asp-route-documentId="@ViewBag.DocumentId" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>

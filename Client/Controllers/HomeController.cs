@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net.Http;
+using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
@@ -95,35 +96,112 @@ namespace Client.Controllers
             }
         }
 
-        // POST: /Home/Parse/{id}
-        [HttpPost]
-        public async Task<IActionResult> Parse(string id)
+        // GET: /Home/Versions/{documentId}
+        public async Task<IActionResult> Versions(string documentId)
         {
             try
             {
-                var response = await _httpClient.PostAsync($"{DocumentServiceUrl}/{id}/parse", null);
-                return RedirectToAction("Documents");
+                var response = await _httpClient.GetAsync($"{DocumentServiceUrl}/{documentId}/versions");
+                var json = await response.Content.ReadAsStringAsync();
+                var versions = JsonSerializer.Deserialize<List<DocumentVersion>>(json, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                ViewBag.DocumentId = documentId;
+                return View(versions);
+            }
+            catch (Exception ex)
+            {
+                ViewBag.Error = $"Error loading versions: {ex.Message}";
+                return View(new List<DocumentVersion>());
+            }
+        }
+
+        // GET: /Home/AddVersion/{documentId}
+        public IActionResult AddVersion(string documentId)
+        {
+            ViewBag.DocumentId = documentId;
+            return View();
+        }
+
+        // POST: /Home/AddVersion/{documentId}
+        [HttpPost]
+        public async Task<IActionResult> AddVersion(string documentId, IFormFile file, DateTime validFrom, DateTime? validTo)
+        {
+            if (file == null || file.Length == 0)
+            {
+                ViewBag.Error = "Please select a file";
+                ViewBag.DocumentId = documentId;
+                return View();
+            }
+
+            try
+            {
+                using var content = new MultipartFormDataContent();
+                using var fileStream = file.OpenReadStream();
+                using var streamContent = new StreamContent(fileStream);
+
+                content.Add(streamContent, "file", file.FileName);
+                content.Add(new StringContent(validFrom.ToString("yyyy-MM-ddTHH:mm:ss")), "validFrom");
+
+                if (validTo.HasValue)
+                {
+                    content.Add(new StringContent(validTo.Value.ToString("yyyy-MM-ddTHH:mm:ss")), "validTo");
+                }
+
+                var response = await _httpClient.PostAsync($"{DocumentServiceUrl}/{documentId}/versions/upload", content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    return RedirectToAction("Versions", new { documentId });
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    ViewBag.Error = $"Upload failed: {error}";
+                    ViewBag.DocumentId = documentId;
+                    return View();
+                }
+            }
+            catch (Exception ex)
+            {
+                ViewBag.Error = $"Error: {ex.Message}";
+                ViewBag.DocumentId = documentId;
+                return View();
+            }
+        }
+
+        // POST: /Home/ParseVersion/{versionId}
+        [HttpPost]
+        public async Task<IActionResult> ParseVersion(string versionId, string documentId)
+        {
+            try
+            {
+                var response = await _httpClient.PostAsync($"{DocumentServiceUrl}/versions/{versionId}/parse", null);
+                return RedirectToAction("Versions", new { documentId });
             }
             catch (Exception ex)
             {
                 TempData["Error"] = $"Parse error: {ex.Message}";
-                return RedirectToAction("Documents");
+                return RedirectToAction("Versions", new { documentId });
             }
         }
 
-        // GET: /Home/Chunks/{id}
-        public async Task<IActionResult> Chunks(string id)
+        // GET: /Home/VersionChunks/{versionId}
+        public async Task<IActionResult> VersionChunks(string versionId, string documentId)
         {
             try
             {
-                var response = await _httpClient.GetAsync($"{DocumentServiceUrl}/{id}/chunks");
+                var response = await _httpClient.GetAsync($"{DocumentServiceUrl}/versions/{versionId}/chunks");
                 var json = await response.Content.ReadAsStringAsync();
                 var chunks = JsonSerializer.Deserialize<List<DocumentChunk>>(json, new JsonSerializerOptions
                 {
                     PropertyNameCaseInsensitive = true
                 });
 
-                ViewBag.DocumentId = id;
+                ViewBag.VersionId = versionId;
+                ViewBag.DocumentId = documentId;
                 return View(chunks);
             }
             catch (Exception ex)

@@ -1,0 +1,91 @@
+﻿@using Client.Models
+@model List<DocumentVersion>
+@{
+    ViewData["Title"] = "Document Versions";
+}
+
+<div class="container mt-4">
+    <h2>📚 Document Versions</h2>
+    <p class="text-muted">Document ID: @ViewBag.DocumentId</p>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">@ViewBag.Error</div>
+    }
+
+    @if (TempData["Error"] != null)
+    {
+        <div class="alert alert-danger">@TempData["Error"]</div>
+    }
+
+    <table class="table table-striped mt-4">
+        <thead class="table-dark">
+            <tr>
+                <th>Version</th>
+                <th>Uploaded At</th>
+                <th>Valid From</th>
+                <th>Valid To</th>
+                <th>Status</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            @if (Model.Count == 0)
+            {
+                <tr>
+                    <td colspan="6" class="text-center">No versions found</td>
+                </tr>
+            }
+            else
+            {
+                @foreach (var version in Model)
+                {
+                    <tr>
+                        <td><span class="badge bg-primary">@string.Format("v{0}", version.VersionNumber)</span></td>
+                        <td>@version.UploadedAt.ToString("g")</td>
+                        <td>@version.ValidFrom.ToString("yyyy-MM-dd")</td>
+                        <td>
+                            @if (version.ValidTo.HasValue)
+                            {
+                                @version.ValidTo.Value.ToString("yyyy-MM-dd")
+                            }
+                            else
+                            {
+                                <span class="text-muted">-</span>
+                            }
+                        </td>
+                        <td>
+                            @if (version.IsParsed)
+                            {
+                                <span class="badge bg-success">✓ Parsed</span>
+                            }
+                            else
+                            {
+                                <span class="badge bg-warning">Not Parsed</span>
+                            }
+                        </td>
+                        <td>
+                            @if (!version.IsParsed)
+                            {
+                                <form method="post" asp-action="ParseVersion" asp-route-versionId="@version.VersionId" asp-route-documentId="@ViewBag.DocumentId" style="display:inline;">
+                                    <button type="submit" class="btn btn-sm btn-primary">Parse</button>
+                                </form>
+                            }
+                            else
+                            {
+                                <a asp-action="VersionChunks" asp-route-versionId="@version.VersionId" asp-route-documentId="@ViewBag.DocumentId" class="btn btn-sm btn-info">
+                                    View Chunks
+                                </a>
+                            }
+                        </td>
+                    </tr>
+                }
+            }
+        </tbody>
+    </table>
+
+    <a asp-action="AddVersion" asp-route-documentId="@ViewBag.DocumentId" class="btn btn-success">
+        ➕ Add New Version
+    </a>
+    <a asp-action="Documents" class="btn btn-secondary">← Back to Documents</a>
+</div>
