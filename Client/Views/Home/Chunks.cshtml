@@ -19,19 +19,23 @@
     }
     else
     {
+        <div class="alert alert-info">
+            <strong>Total Chunks:</strong> @Model.Count
+        </div>
+
         @foreach (var chunk in Model)
         {
             <div class="card mb-3">
-                <div class="card-header">
+                <div class="card-header bg-light">
                     <strong>Chunk #@chunk.Index</strong>
-                    <span class="badge bg-secondary float-end">ID: @chunk.ChunkId.Substring(0, 8)...</span>
+                    <span class="badge bg-secondary float-end">@chunk.Text.Length characters</span>
                 </div>
                 <div class="card-body">
-                    <pre style="white-space: pre-wrap;">@chunk.Text</pre>
+                    <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 0.9em;">@chunk.Text</pre>
                 </div>
             </div>
         }
     }
 
-    <a asp-action="Documents" class="btn btn-secondary">← Back to Documents</a>
+    <a asp-action="Versions" asp-route-documentId="@ViewBag.DocumentId" class="btn btn-secondary">← Back to Versions</a>
 </div>

@@ -178,11 +178,33 @@ namespace Client.Controllers
         {
             try
             {
-                var response = await _httpClient.PostAsync($"{DocumentServiceUrl}/versions/{versionId}/parse", null);
+                _logger.LogInformation($"Parsing version {versionId} for document {documentId}");
+
+                var url = $"{DocumentServiceUrl}/versions/{versionId}/parse";
+                _logger.LogInformation($"Calling: {url}");
+
+                var response = await _httpClient.PostAsync(url, null);
+
+                _logger.LogInformation($"Response status: {response.StatusCode}");
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogError($"Parse failed: {errorContent}");
+                    TempData["Error"] = $"Parse failed: {errorContent}";
+                }
+                else
+                {
+                    var successContent = await response.Content.ReadAsStringAsync();
+                    _logger.LogInformation($"Parse success: {successContent}");
+                    TempData["Success"] = "Document parsed successfully!";
+                }
+
                 return RedirectToAction("Versions", new { documentId });
             }
             catch (Exception ex)
             {
+                _logger.LogError(ex, "Parse error");
                 TempData["Error"] = $"Parse error: {ex.Message}";
                 return RedirectToAction("Versions", new { documentId });
             }

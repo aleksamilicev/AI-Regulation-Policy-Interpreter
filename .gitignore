@@ -1,3 +1,6 @@
+# Storage folder (documents, parsed, embeddings)
+storage/
+
 # ==== Visual Studio ====
 .vs/
 *.user

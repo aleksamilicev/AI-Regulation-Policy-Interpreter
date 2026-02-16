@@ -1,4 +1,5 @@
 ﻿using DocumentService.Models;
+using DocumentService.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.ServiceFabric.Data;
@@ -9,6 +10,9 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using iText.Kernel.Pdf;
+using iText.Kernel.Pdf.Canvas.Parser;
+using iText.Kernel.Pdf.Canvas.Parser.Listener;
 
 namespace DocumentService.Controllers
 {
@@ -38,10 +42,11 @@ namespace DocumentService.Controllers
 
             var docId = Guid.NewGuid().ToString();
             var versionId = Guid.NewGuid().ToString();
-            var uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "uploaded-docs");
-            var filePath = Path.Combine(uploadFolder, $"{versionId}{extension}");
+            var docTitle = title ?? file.FileName;
 
-            // Save file to disk
+            // Save to storage/documents/Title_abc123/v1.ext
+            var filePath = StorageHelper.GetVersionFilePath(docId, docTitle, 1, extension);
+
             using (var stream = new FileStream(filePath, FileMode.Create))
             {
                 await file.CopyToAsync(stream);
@@ -52,16 +57,14 @@ namespace DocumentService.Controllers
 
             using (var tx = _stateManager.CreateTransaction())
             {
-                // Create document metadata
                 await documents.AddAsync(tx, docId, new DocumentMetadata
                 {
                     Id = docId,
-                    Title = title ?? file.FileName,
+                    Title = docTitle,
                     CurrentVersion = 1,
                     CreatedAt = DateTime.UtcNow
                 });
 
-                // Create first version
                 var version = new DocumentVersion
                 {
                     VersionId = versionId,
@@ -85,10 +88,10 @@ namespace DocumentService.Controllers
         // POST /api/documents/{id}/versions/upload
         [HttpPost("{id}/versions/upload")]
         public async Task<IActionResult> UploadNewVersion(
-    string id,
-    IFormFile file,
-    [FromForm] DateTime validFrom,
-    [FromForm] DateTime? validTo)
+            string id,
+            IFormFile file,
+            [FromForm] DateTime validFrom,
+            [FromForm] DateTime? validTo)
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
@@ -115,17 +118,9 @@ namespace DocumentService.Controllers
                 var doc = docResult.Value;
                 var docVersions = versionsResult.Value;
 
-                // 1️⃣ Nađi trenutno aktivnu verziju (ona bez ValidTo)
-                var currentActiveVersion = docVersions
-                    .OrderByDescending(v => v.VersionNumber)
-                    .FirstOrDefault(v => !v.ValidTo.HasValue);
-
-                // 2️⃣ Proveri overlap sa svim OSTALIM verzijama
+                // Check overlaps
                 foreach (var v in docVersions)
                 {
-                    if (currentActiveVersion != null && v.VersionId == currentActiveVersion.VersionId)
-                        continue;
-
                     bool overlap =
                         validFrom < (v.ValidTo ?? DateTime.MaxValue) &&
                         (validTo ?? DateTime.MaxValue) > v.ValidFrom;
@@ -134,24 +129,15 @@ namespace DocumentService.Controllers
                         return BadRequest($"Version date overlaps with version {v.VersionNumber}");
                 }
 
-                // 3️⃣ Zatvori prethodnu aktivnu verziju
-                if (currentActiveVersion != null)
-                {
-                    currentActiveVersion.ValidTo = validFrom;
-                }
-
-                // 4️⃣ Sačuvaj fajl
                 var versionId = Guid.NewGuid().ToString();
-                var uploadFolder = Path.Combine(Directory.GetCurrentDirectory(), "uploaded-docs");
-                var filePath = Path.Combine(uploadFolder, $"{versionId}{extension}");
+                var newVersionNumber = doc.CurrentVersion + 1;
+
+                var filePath = StorageHelper.GetVersionFilePath(id, doc.Title, newVersionNumber, extension);
 
                 using (var stream = new FileStream(filePath, FileMode.Create))
                 {
                     await file.CopyToAsync(stream);
                 }
-
-                // 5️⃣ Kreiraj novu verziju
-                var newVersionNumber = doc.CurrentVersion + 1;
 
                 var newVersion = new DocumentVersion
                 {
@@ -169,7 +155,6 @@ namespace DocumentService.Controllers
                 docVersions.Add(newVersion);
                 await versions.SetAsync(tx, id, docVersions);
 
-                // 6️⃣ Update dokumenta
                 doc.CurrentVersion = newVersionNumber;
                 await documents.SetAsync(tx, id, doc);
 
@@ -183,7 +168,6 @@ namespace DocumentService.Controllers
                 });
             }
         }
-
 
         // GET /api/documents
         [HttpGet]
@@ -241,14 +225,12 @@ namespace DocumentService.Controllers
         public async Task<IActionResult> ParseVersion(string versionId)
         {
             var versions = await _stateManager.GetOrAddAsync<IReliableDictionary<string, List<DocumentVersion>>>("versions");
-            var chunks = await _stateManager.GetOrAddAsync<IReliableDictionary<string, List<DocumentChunk>>>("chunks");
 
             using (var tx = _stateManager.CreateTransaction())
             {
                 DocumentVersion targetVersion = null;
                 string documentId = null;
 
-                // Find version
                 var enumerable = await versions.CreateEnumerableAsync(tx);
                 var enumerator = enumerable.GetAsyncEnumerator();
 
@@ -266,31 +248,50 @@ namespace DocumentService.Controllers
                     return NotFound("Version file not found on disk");
 
                 string text;
-                if (targetVersion.Extension == ".txt")
+
+                // Parse based on extension
+                switch (targetVersion.Extension.ToLower())
                 {
-                    text = await System.IO.File.ReadAllTextAsync(targetVersion.FilePath);
-                }
-                else
-                {
-                    return BadRequest("Only TXT parsing supported for now");
+                    case ".txt":
+                        text = await System.IO.File.ReadAllTextAsync(targetVersion.FilePath);
+                        break;
+
+                    case ".pdf":
+                        text = ExtractTextFromPdf(targetVersion.FilePath);
+                        break;
+
+                    case ".docx":
+                        return BadRequest("DOCX parsing not yet implemented");
+
+                    default:
+                        return BadRequest($"Unsupported file type: {targetVersion.Extension}");
                 }
 
                 // Chunk text
-                var documentChunks = new List<DocumentChunk>();
-                int chunkSize = 500;
-                for (int i = 0; i < text.Length; i += chunkSize)
-                {
-                    var chunkText = text.Substring(i, Math.Min(chunkSize, text.Length - i));
-                    documentChunks.Add(new DocumentChunk
-                    {
-                        ChunkId = Guid.NewGuid(),
-                        ChunkIndex = documentChunks.Count,
-                        Text = chunkText
-                    });
-                }
+                text = CleanText(text);
 
-                // Save chunks with versionId as key
-                await chunks.AddOrUpdateAsync(tx, versionId, documentChunks, (key, oldValue) => documentChunks);
+                // SEMANTIC CHUNKING
+                var chunks = CreateSemanticChunks(text, 1200, 200);
+
+                var parsedChunks = chunks
+                    .Select((chunkText, index) => new ParsedChunk
+                    {
+                        Index = index,
+                        Text = chunkText
+                    })
+                    .ToList();
+
+
+
+                // Save to storage/parsed/versionId.json
+                var parsedData = new ParsedData
+                {
+                    VersionId = versionId,
+                    Chunks = parsedChunks.ToArray()
+
+                };
+
+                await StorageHelper.SaveParsedDataAsync(versionId, parsedData);
 
                 // Update version status
                 var docVersions = (await versions.TryGetValueAsync(tx, documentId)).Value;
@@ -299,24 +300,127 @@ namespace DocumentService.Controllers
 
                 await tx.CommitAsync();
 
-                return Ok(new { ChunkCount = documentChunks.Count, Message = "Version parsed successfully" });
+                return Ok(new
+                {
+                    ChunkCount = parsedChunks.Count,
+                    ParsedFilePath = StorageHelper.GetParsedFilePath(versionId),
+                    Message = "Version parsed successfully"
+                });
             }
+        }
+
+        private string CleanText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return string.Empty;
+
+            // Normalize line endings
+            text = text.Replace("\r\n", "\n");
+
+            // Remove excessive whitespace
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"[ \t]+", " ");
+
+            // Remove multiple empty lines
+            text = System.Text.RegularExpressions.Regex.Replace(text, @"\n{3,}", "\n\n");
+
+            // Remove page numbers (common PDF artifact)
+            text = System.Text.RegularExpressions.Regex.Replace(
+                text,
+                @"^\s*\d+\s*$",
+                "",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
+
+            // Fix broken words from PDF line breaks
+            text = System.Text.RegularExpressions.Regex.Replace(
+                text,
+                @"(\w)-\n(\w)",
+                "$1$2");
+
+            // Remove single-letter line breaks (very common PDF issue)
+            text = System.Text.RegularExpressions.Regex.Replace(
+                text,
+                @"(\w)\n(\w)",
+                "$1 $2");
+
+            return text.Trim();
+        }
+
+        private List<string> CreateSemanticChunks(
+    string text,
+    int maxChunkSize = 1200,
+    int minChunkSize = 200)
+        {
+            var chunks = new List<string>();
+
+            if (string.IsNullOrWhiteSpace(text))
+                return chunks;
+
+            // Split by article OR paragraph
+            var parts = System.Text.RegularExpressions.Regex.Split(
+                text,
+                @"(?=Član\s+\d+\.?)|\n\n");
+
+            var currentChunk = new System.Text.StringBuilder();
+
+            foreach (var part in parts)
+            {
+                var trimmed = part.Trim();
+
+                if (string.IsNullOrWhiteSpace(trimmed))
+                    continue;
+
+                // If adding part exceeds max size, finalize current chunk
+                if (currentChunk.Length + trimmed.Length > maxChunkSize)
+                {
+                    if (currentChunk.Length >= minChunkSize)
+                    {
+                        chunks.Add(currentChunk.ToString().Trim());
+                        currentChunk.Clear();
+                    }
+                }
+
+                currentChunk.AppendLine(trimmed);
+                currentChunk.AppendLine();
+            }
+
+            // Add last chunk
+            if (currentChunk.Length > 0)
+                chunks.Add(currentChunk.ToString().Trim());
+
+            return chunks;
+        }
+
+
+        // Helper method za PDF parsing
+        private string ExtractTextFromPdf(string pdfPath)
+        {
+            var sb = new System.Text.StringBuilder();
+
+            using (var reader = new iText.Kernel.Pdf.PdfReader(pdfPath))
+            using (var pdfDoc = new iText.Kernel.Pdf.PdfDocument(reader))
+            {
+                for (int i = 1; i <= pdfDoc.GetNumberOfPages(); i++)
+                {
+                    var page = pdfDoc.GetPage(i);
+                    var strategy = new iText.Kernel.Pdf.Canvas.Parser.Listener.SimpleTextExtractionStrategy();
+                    string pageText = iText.Kernel.Pdf.Canvas.Parser.PdfTextExtractor.GetTextFromPage(page, strategy);
+                    sb.AppendLine(pageText);
+                }
+            }
+
+            return sb.ToString();
         }
 
         // GET /api/documents/versions/{versionId}/chunks
         [HttpGet("versions/{versionId}/chunks")]
         public async Task<IActionResult> GetVersionChunks(string versionId)
         {
-            var chunks = await _stateManager.GetOrAddAsync<IReliableDictionary<string, List<DocumentChunk>>>("chunks");
+            var parsedData = await StorageHelper.LoadParsedDataAsync(versionId);
 
-            using (var tx = _stateManager.CreateTransaction())
-            {
-                var result = await chunks.TryGetValueAsync(tx, versionId);
-                if (!result.HasValue)
-                    return NotFound("Version chunks not found. Parse the version first.");
+            if (parsedData == null)
+                return NotFound("Version chunks not found. Parse the version first.");
 
-                return Ok(result.Value);
-            }
+            return Ok(parsedData.Chunks);
         }
     }
 }
