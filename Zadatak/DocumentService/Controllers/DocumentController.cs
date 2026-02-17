@@ -80,6 +80,7 @@ namespace DocumentService.Controllers
 
                 await versions.AddAsync(tx, docId, new List<DocumentVersion> { version });
                 await tx.CommitAsync();
+                await StorageHelper.SaveVersionMetadataAsync(docId, docTitle, version);
             }
 
             return Ok(new { DocumentId = docId, VersionId = versionId, Message = "Document uploaded successfully" });
@@ -165,6 +166,7 @@ namespace DocumentService.Controllers
                 await documents.SetAsync(tx, id, doc);
 
                 await tx.CommitAsync();
+                await StorageHelper.SaveVersionMetadataAsync(id, doc.Title, newVersion);
 
                 return Ok(new
                 {
@@ -299,7 +301,15 @@ namespace DocumentService.Controllers
 
                 };
 
-                await StorageHelper.SaveParsedDataAsync(versionId, parsedData);
+                var documents = await _stateManager.GetOrAddAsync<IReliableDictionary<string, DocumentMetadata>>("documents");
+                string docTitle;
+                using (var docTx = _stateManager.CreateTransaction())
+                {
+                    var docResult = await documents.TryGetValueAsync(docTx, documentId);
+                    docTitle = docResult.HasValue ? docResult.Value.Title : "unknown";
+                }
+
+                await StorageHelper.SaveParsedDataAsync(versionId, parsedData, docTitle, targetVersion.VersionNumber);
 
                 // Update version status
                 var docVersions = (await versions.TryGetValueAsync(tx, documentId)).Value;
@@ -311,7 +321,7 @@ namespace DocumentService.Controllers
                 return Ok(new
                 {
                     ChunkCount = parsedChunks.Count,
-                    ParsedFilePath = StorageHelper.GetParsedFilePath(versionId),
+                    ParsedFilePath = StorageHelper.GetParsedFilePathById(versionId),
                     Message = "Version parsed successfully"
                 });
             }
