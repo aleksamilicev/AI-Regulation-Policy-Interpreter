@@ -90,8 +90,7 @@ namespace DocumentService.Controllers
         public async Task<IActionResult> UploadNewVersion(
             string id,
             IFormFile file,
-            [FromForm] DateTime validFrom,
-            [FromForm] DateTime? validTo)
+            [FromForm] DateTime validFrom)
         {
             if (file == null || file.Length == 0)
                 return BadRequest("No file uploaded");
@@ -118,17 +117,21 @@ namespace DocumentService.Controllers
                 var doc = docResult.Value;
                 var docVersions = versionsResult.Value;
 
-                // Check overlaps
-                foreach (var v in docVersions)
-                {
-                    bool overlap =
-                        validFrom < (v.ValidTo ?? DateTime.MaxValue) &&
-                        (validTo ?? DateTime.MaxValue) > v.ValidFrom;
+                // Find current active version (ValidTo == null)
+                var currentActiveVersion = docVersions
+                    .OrderByDescending(v => v.VersionNumber)
+                    .FirstOrDefault(v => v.ValidTo == null);
 
-                    if (overlap)
-                        return BadRequest($"Version date overlaps with version {v.VersionNumber}");
+                // Close previous active version automatically
+                if (currentActiveVersion != null)
+                {
+                    if (validFrom <= currentActiveVersion.ValidFrom)
+                        return BadRequest("New version ValidFrom must be after current version ValidFrom");
+
+                    currentActiveVersion.ValidTo = validFrom;
                 }
 
+                // Create new version
                 var versionId = Guid.NewGuid().ToString();
                 var newVersionNumber = doc.CurrentVersion + 1;
 
@@ -148,13 +151,16 @@ namespace DocumentService.Controllers
                     Extension = extension,
                     UploadedAt = DateTime.UtcNow,
                     ValidFrom = validFrom,
-                    ValidTo = validTo,
+                    ValidTo = null, // newest version is active
                     IsParsed = false
                 };
 
                 docVersions.Add(newVersion);
+
+                // Save updated versions list
                 await versions.SetAsync(tx, id, docVersions);
 
+                // Update document current version
                 doc.CurrentVersion = newVersionNumber;
                 await documents.SetAsync(tx, id, doc);
 
@@ -164,10 +170,12 @@ namespace DocumentService.Controllers
                 {
                     VersionId = versionId,
                     VersionNumber = newVersionNumber,
+                    ValidFrom = newVersion.ValidFrom,
                     Message = "New version uploaded successfully"
                 });
             }
         }
+
 
         // GET /api/documents
         [HttpGet]

@@ -19,7 +19,8 @@
 
   <ItemGroup>
     <Folder Include="Controllers\" />
-    <Folder Include="uploaded-docs\" />
+    <Folder Include="storage\documents\" />
+    <Folder Include="storage\parsed\" />
   </ItemGroup>
 
 </Project>
