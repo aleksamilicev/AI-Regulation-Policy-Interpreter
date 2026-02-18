@@ -40,6 +40,7 @@
       <ServiceLaunchUrl>http://localhost:{ServicePort}/</ServiceLaunchUrl>
     </ProjectReference>
     <ProjectReference Include="DocumentService\DocumentService.csproj" />
+    <ProjectReference Include="RetrievalService\RetrievalService.csproj" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.Common.targets" />
   <PropertyGroup>

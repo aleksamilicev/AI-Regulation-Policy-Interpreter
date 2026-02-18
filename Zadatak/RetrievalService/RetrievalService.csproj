@@ -12,16 +12,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="itext7" Version="9.5.0" />
     <PackageReference Include="Microsoft.ServiceFabric.Services" Version="8.3.365" />
     <PackageReference Include="Microsoft.ServiceFabric.AspNetCore.Kestrel" Version="8.3.365" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="Controllers\" />
-    <Folder Include="storage\documents\" />
-    <Folder Include="storage\embeddings\" />
-    <Folder Include="storage\parsed\" />
   </ItemGroup>
 
 </Project>

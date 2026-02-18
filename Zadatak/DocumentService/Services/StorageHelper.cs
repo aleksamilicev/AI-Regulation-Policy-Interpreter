@@ -57,7 +57,14 @@ namespace DocumentService.Services
                 version.IsParsed
             }, new JsonSerializerOptions { WriteIndented = true });
 
-            await File.WriteAllTextAsync(filePath, json);
+            // Eksplicitno flush
+            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(fileStream))
+            {
+                await writer.WriteAsync(json);
+                await writer.FlushAsync();
+                fileStream.Flush(true);
+            }
         }
 
         // ─── Parsed file paths ──────────────────────────────────────────────
@@ -80,8 +87,23 @@ namespace DocumentService.Services
         {
             var json = JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true });
 
-            await File.WriteAllTextAsync(GetParsedFilePathById(versionId), json);
-            await File.WriteAllTextAsync(GetParsedFilePathByName(documentTitle, versionNumber), json);
+            var filePathById = GetParsedFilePathById(versionId);
+            var filePathByName = GetParsedFilePathByName(documentTitle, versionNumber);
+
+            // Sačuvaj oba fajla sa eksplicitnim flush-om
+            await WriteFileWithFlush(filePathById, json);
+            await WriteFileWithFlush(filePathByName, json);
+        }
+
+        private static async Task WriteFileWithFlush(string filePath, string content)
+        {
+            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(fileStream))
+            {
+                await writer.WriteAsync(content);
+                await writer.FlushAsync();
+                fileStream.Flush(true);
+            }
         }
 
         // Čita po versionId (koristi API)
@@ -135,7 +157,16 @@ namespace DocumentService.Services
                 Timestamp = DateTime.UtcNow
             }, new JsonSerializerOptions { WriteIndented = true });
 
-            await File.WriteAllTextAsync(filePath, json);
+            // STARO: await File.WriteAllTextAsync(filePath, json);
+
+            // NOVO: Eksplicitno flush
+            using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var writer = new StreamWriter(fileStream))
+            {
+                await writer.WriteAsync(json);
+                await writer.FlushAsync();
+                fileStream.Flush(true); // true = flush OS buffer
+            }
         }
 
         public static async Task<float[]> LoadChunkEmbeddingAsync(string documentId, string versionId, int chunkIndex)

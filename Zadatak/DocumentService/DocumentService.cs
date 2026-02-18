@@ -50,7 +50,10 @@ namespace DocumentService
 
         protected override async Task RunAsync(CancellationToken cancellationToken)
         {
-            var storageRoot = Path.Combine(Directory.GetCurrentDirectory(), "storage");
+            // CENTRALNI STORAGE - van bin foldera
+            var solutionRoot = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", ".."));
+            var storageRoot = Path.Combine(solutionRoot, "storage");
+
             var documentsFolder = Path.Combine(storageRoot, "documents");
             var parsedFolder = Path.Combine(storageRoot, "parsed");
             var embeddingsFolder = Path.Combine(storageRoot, "embeddings");
@@ -59,7 +62,10 @@ namespace DocumentService
             Directory.CreateDirectory(parsedFolder);
             Directory.CreateDirectory(embeddingsFolder);
 
-            ServiceEventSource.Current.ServiceMessage(this.Context, $"Storage folders created at: {storageRoot}");
+            ServiceEventSource.Current.ServiceMessage(this.Context, $"Storage root: {storageRoot}");
+            ServiceEventSource.Current.ServiceMessage(this.Context, $"Documents: {documentsFolder}");
+            ServiceEventSource.Current.ServiceMessage(this.Context, $"Parsed: {parsedFolder}");
+            ServiceEventSource.Current.ServiceMessage(this.Context, $"Embeddings: {embeddingsFolder}");
 
             await base.RunAsync(cancellationToken);
         }

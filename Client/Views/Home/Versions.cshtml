@@ -81,6 +81,9 @@
                                 <a asp-action="VersionChunks" asp-route-versionId="@version.VersionId" asp-route-documentId="@ViewBag.DocumentId" class="btn btn-sm btn-info">
                                     View Chunks
                                 </a>
+                                <a asp-action="Search" asp-route-documentId="@ViewBag.DocumentId" asp-route-versionId="@version.VersionId" class="btn btn-sm btn-success">
+                                    🔍 Search
+                                </a>
                             }
                         </td>
                     </tr>

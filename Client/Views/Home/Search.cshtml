@@ -1,0 +1,78 @@
+﻿@using Client.Models
+@{
+    ViewData["Title"] = "Search Document";
+    var searchResponse = ViewBag.SearchResponse as SearchResponse;
+}
+
+<div class="container mt-4">
+    <h2>🔍 Search Document</h2>
+    <p class="text-muted">Document ID: @ViewBag.DocumentId | Version ID: @ViewBag.VersionId</p>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">@ViewBag.Error</div>
+    }
+
+    <form method="post" class="mt-4">
+        <input type="hidden" name="documentId" value="@ViewBag.DocumentId" />
+        <input type="hidden" name="versionId" value="@ViewBag.VersionId" />
+
+        <div class="form-group mb-3">
+            <label><strong>Enter your query:</strong></label>
+            <input type="text" name="query" class="form-control"
+                   placeholder="e.g., What are the security requirements?"
+                   value="@ViewBag.Query" required />
+        </div>
+
+        <div class="form-group mb-3">
+            <label><strong>Number of results (Top K):</strong></label>
+            <input type="number" name="topK" class="form-control"
+                   value="5" min="1" max="20" />
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg">
+            🔎 Search
+        </button>
+        <a asp-action="Versions" asp-route-documentId="@ViewBag.DocumentId" class="btn btn-secondary">
+            ← Back to Versions
+        </a>
+    </form>
+
+    @if (searchResponse != null)
+    {
+        <hr class="my-4" />
+
+        <div class="alert alert-info">
+            <strong>Query:</strong> @searchResponse.Query<br />
+            <strong>Results found:</strong> @searchResponse.ResultsCount
+        </div>
+
+        @if (searchResponse.Results.Count == 0)
+        {
+            <div class="alert alert-warning">No results found.</div>
+        }
+        else
+        {
+            <h3 class="mt-4">📊 Top @searchResponse.Results.Count Results</h3>
+
+            @foreach (var result in searchResponse.Results)
+            {
+                var scorePercent = (result.Score * 100).ToString("F1");
+                var badgeClass = result.Score >= 0.7f ? "bg-success" :
+                result.Score >= 0.5f ? "bg-warning" : "bg-secondary";
+
+                <div class="card mb-3">
+                    <div class="card-header bg-light">
+                        <strong>Chunk #@result.ChunkIndex</strong>
+                        <span class="badge @badgeClass float-end">
+                            Similarity: @scorePercent%
+                        </span>
+                    </div>
+                    <div class="card-body">
+                        <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 0.9em; margin: 0;">@result.Text</pre>
+                    </div>
+                </div>
+            }
+        }
+    }
+</div>

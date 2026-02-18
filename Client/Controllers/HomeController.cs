@@ -18,6 +18,7 @@ namespace Client.Controllers
         private readonly ILogger<HomeController> _logger;
         private readonly HttpClient _httpClient;
         private const string DocumentServiceUrl = "http://localhost:8081/api/documents";
+        private const string RetrievalServiceUrl = "http://localhost:8082/api/search";
 
         public HomeController(ILogger<HomeController> logger)
         {
@@ -50,6 +51,67 @@ namespace Client.Controllers
                 return View(new List<DocumentMetadata>());
             }
         }
+
+        #region Retrieval Service
+        // GET: /Home/Search/{documentId}/{versionId}
+        public IActionResult Search(string documentId, string versionId)
+        {
+            ViewBag.DocumentId = documentId;
+            ViewBag.VersionId = versionId;
+            return View();
+        }
+
+        // POST: /Home/Search
+        [HttpPost]
+        public async Task<IActionResult> Search(string documentId, string versionId, string query, int topK = 5)
+        {
+            try
+            {
+                var request = new SearchRequest
+                {
+                    Query = query,
+                    DocumentId = documentId,
+                    VersionId = versionId,
+                    TopK = topK
+                };
+
+                var json = JsonSerializer.Serialize(request);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+                var response = await _httpClient.PostAsync(RetrievalServiceUrl, content);
+                var resultJson = await response.Content.ReadAsStringAsync();
+
+                if (response.IsSuccessStatusCode)
+                {
+                    var searchResponse = JsonSerializer.Deserialize<SearchResponse>(resultJson, new JsonSerializerOptions
+                    {
+                        PropertyNameCaseInsensitive = true
+                    });
+
+                    ViewBag.DocumentId = documentId;
+                    ViewBag.VersionId = versionId;
+                    ViewBag.Query = query;
+                    ViewBag.SearchResponse = searchResponse;
+
+                    return View();
+                }
+                else
+                {
+                    ViewBag.Error = $"Search failed: {resultJson}";
+                    ViewBag.DocumentId = documentId;
+                    ViewBag.VersionId = versionId;
+                    return View();
+                }
+            }
+            catch (Exception ex)
+            {
+                ViewBag.Error = $"Error: {ex.Message}";
+                ViewBag.DocumentId = documentId;
+                ViewBag.VersionId = versionId;
+                return View();
+            }
+        }
+        #endregion
 
         // GET: /Home/Upload
         public IActionResult Upload()
