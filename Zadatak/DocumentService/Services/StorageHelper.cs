@@ -9,7 +9,7 @@ namespace DocumentService.Services
 {
     public static class StorageHelper
     {
-        private static readonly string StorageRoot = Path.Combine(Directory.GetCurrentDirectory(), "storage");
+        private static readonly string StorageRoot = @"E:\AI-Regulation-Policy-Interpreter\storage";
         public static string DocumentsFolder => Path.Combine(StorageRoot, "documents");
         public static string ParsedFolder => Path.Combine(StorageRoot, "parsed");
         public static string EmbeddingsFolder => Path.Combine(StorageRoot, "embeddings");

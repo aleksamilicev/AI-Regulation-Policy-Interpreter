@@ -30,6 +30,7 @@ namespace DocumentService
                         (url, listener) =>
                         {
                             ServiceEventSource.Current.ServiceMessage(serviceContext, $"Starting Kestrel on {url}");
+
                             return new WebHostBuilder()
                                 .UseKestrel()
                                 .ConfigureServices(services =>
@@ -50,10 +51,8 @@ namespace DocumentService
 
         protected override async Task RunAsync(CancellationToken cancellationToken)
         {
-            // CENTRALNI STORAGE - van bin foldera
-            var solutionRoot = Path.GetFullPath(Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "..", ".."));
-            var storageRoot = Path.Combine(solutionRoot, "storage");
-
+            // Kreiraj centralne storage foldere
+            var storageRoot = @"E:\AI-Regulation-Policy-Interpreter\storage";
             var documentsFolder = Path.Combine(storageRoot, "documents");
             var parsedFolder = Path.Combine(storageRoot, "parsed");
             var embeddingsFolder = Path.Combine(storageRoot, "embeddings");
@@ -62,10 +61,7 @@ namespace DocumentService
             Directory.CreateDirectory(parsedFolder);
             Directory.CreateDirectory(embeddingsFolder);
 
-            ServiceEventSource.Current.ServiceMessage(this.Context, $"Storage root: {storageRoot}");
-            ServiceEventSource.Current.ServiceMessage(this.Context, $"Documents: {documentsFolder}");
-            ServiceEventSource.Current.ServiceMessage(this.Context, $"Parsed: {parsedFolder}");
-            ServiceEventSource.Current.ServiceMessage(this.Context, $"Embeddings: {embeddingsFolder}");
+            ServiceEventSource.Current.ServiceMessage(this.Context, $"Storage initialized at: {storageRoot}");
 
             await base.RunAsync(cancellationToken);
         }

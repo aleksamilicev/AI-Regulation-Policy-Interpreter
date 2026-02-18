@@ -7,6 +7,10 @@
   <!-- This is used for securing StateManager's replication traffic. -->
   <Section Name="ReplicatorSecurityConfig" />
 
+  <Section Name="StorageConfig">
+    <Parameter Name="StorageRootPath" Value="E:\AI-Regulation-Policy-Interpreter\storage" />
+  </Section>
+
   <!-- Add your custom configuration sections and parameters here. -->
   <!--
   <Section Name="MyConfigSection">
