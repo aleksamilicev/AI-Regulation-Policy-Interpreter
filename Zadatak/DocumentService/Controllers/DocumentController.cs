@@ -21,10 +21,13 @@ namespace DocumentService.Controllers
     public class DocumentController : ControllerBase
     {
         private readonly IReliableStateManager _stateManager;
+        private readonly EmbeddingService _embeddingService;
 
-        public DocumentController(IReliableStateManager stateManager)
+
+        public DocumentController(IReliableStateManager stateManager, EmbeddingService embeddingService)
         {
             _stateManager = stateManager;
+            _embeddingService = embeddingService;
         }
 
         // POST /api/documents/upload
@@ -311,6 +314,13 @@ namespace DocumentService.Controllers
 
                 await StorageHelper.SaveParsedDataAsync(versionId, parsedData, docTitle, targetVersion.VersionNumber);
 
+                // Generiši i sačuvaj embeddings
+                for (int i = 0; i < parsedChunks.Count; i++)
+                {
+                    var embedding = await _embeddingService.GenerateEmbeddingAsync(parsedChunks[i].Text);
+                    await StorageHelper.SaveChunkEmbeddingAsync(documentId, versionId, i, embedding);
+                }
+
                 // Update version status
                 var docVersions = (await versions.TryGetValueAsync(tx, documentId)).Value;
                 targetVersion.IsParsed = true;
@@ -323,6 +333,46 @@ namespace DocumentService.Controllers
                     ChunkCount = parsedChunks.Count,
                     ParsedFilePath = StorageHelper.GetParsedFilePathById(versionId),
                     Message = "Version parsed successfully"
+                });
+            }
+        }
+
+        // GET /api/documents/versions/{versionId}/embeddings/{chunkIndex}
+        [HttpGet("versions/{versionId}/embeddings/{chunkIndex}")]
+        public async Task<IActionResult> GetChunkEmbedding(string versionId, int chunkIndex)
+        {
+            var versions = await _stateManager.GetOrAddAsync<IReliableDictionary<string, List<DocumentVersion>>>("versions");
+
+            using (var tx = _stateManager.CreateTransaction())
+            {
+                DocumentVersion targetVersion = null;
+                string documentId = null;
+
+                var enumerable = await versions.CreateEnumerableAsync(tx);
+                var enumerator = enumerable.GetAsyncEnumerator();
+
+                while (await enumerator.MoveNextAsync(CancellationToken.None))
+                {
+                    documentId = enumerator.Current.Key;
+                    targetVersion = enumerator.Current.Value.FirstOrDefault(v => v.VersionId == versionId);
+                    if (targetVersion != null) break;
+                }
+
+                if (targetVersion == null)
+                    return NotFound("Version not found");
+
+                var embedding = await StorageHelper.LoadChunkEmbeddingAsync(documentId, versionId, chunkIndex);
+
+                if (embedding == null)
+                    return NotFound("Embedding not found for this chunk");
+
+                return Ok(new
+                {
+                    DocumentId = documentId,
+                    VersionId = versionId,
+                    ChunkIndex = chunkIndex,
+                    Embedding = embedding,
+                    Dimension = embedding.Length
                 });
             }
         }

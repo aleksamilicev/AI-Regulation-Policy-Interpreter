@@ -1,14 +1,15 @@
+using DocumentService.Services;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.ServiceFabric.Data;
+using Microsoft.ServiceFabric.Services.Communication.AspNetCore;
+using Microsoft.ServiceFabric.Services.Communication.Runtime;
+using Microsoft.ServiceFabric.Services.Runtime;
 using System;
 using System.Collections.Generic;
 using System.Fabric;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using Microsoft.ServiceFabric.Data;
-using Microsoft.ServiceFabric.Services.Communication.Runtime;
-using Microsoft.ServiceFabric.Services.Runtime;
-using Microsoft.ServiceFabric.Services.Communication.AspNetCore;
-using Microsoft.AspNetCore.Hosting;
 
 namespace DocumentService
 {
@@ -35,6 +36,7 @@ namespace DocumentService
                                 {
                                     services.AddSingleton<StatefulServiceContext>(serviceContext);
                                     services.AddSingleton<IReliableStateManager>(this.StateManager);
+                                    services.AddSingleton<EmbeddingService>();
                                     services.AddControllers();
                                 })
                                 .UseContentRoot(Directory.GetCurrentDirectory())

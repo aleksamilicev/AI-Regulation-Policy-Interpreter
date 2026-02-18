@@ -110,6 +110,47 @@ namespace DocumentService.Services
 
             return sanitized;
         }
+
+        // ─── Embeddings folder i paths ──────────────────────────────────────
+        public static string GetEmbeddingsFolder(string documentId, string versionId)
+        {
+            var embeddingsFolder = Path.Combine(EmbeddingsFolder, documentId, versionId);
+            Directory.CreateDirectory(embeddingsFolder);
+            return embeddingsFolder;
+        }
+
+        public static string GetChunkEmbeddingPath(string documentId, string versionId, int chunkIndex)
+        {
+            var folder = GetEmbeddingsFolder(documentId, versionId);
+            return Path.Combine(folder, $"chunk_{chunkIndex}.json");
+        }
+
+        public static async Task SaveChunkEmbeddingAsync(string documentId, string versionId, int chunkIndex, float[] embedding)
+        {
+            var filePath = GetChunkEmbeddingPath(documentId, versionId, chunkIndex);
+            var json = JsonSerializer.Serialize(new
+            {
+                ChunkIndex = chunkIndex,
+                Embedding = embedding,
+                Timestamp = DateTime.UtcNow
+            }, new JsonSerializerOptions { WriteIndented = true });
+
+            await File.WriteAllTextAsync(filePath, json);
+        }
+
+        public static async Task<float[]> LoadChunkEmbeddingAsync(string documentId, string versionId, int chunkIndex)
+        {
+            var filePath = GetChunkEmbeddingPath(documentId, versionId, chunkIndex);
+            if (!File.Exists(filePath))
+                return null;
+
+            var json = await File.ReadAllTextAsync(filePath);
+            var data = JsonSerializer.Deserialize<JsonElement>(json);
+
+            var embeddingArray = data.GetProperty("Embedding");
+            return JsonSerializer.Deserialize<float[]>(embeddingArray.GetRawText());
+        }
+
     }
 
     public class ParsedData
