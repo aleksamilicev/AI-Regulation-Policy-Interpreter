@@ -19,6 +19,7 @@ namespace Client.Controllers
         private readonly HttpClient _httpClient;
         private const string DocumentServiceUrl = "http://localhost:8081/api/documents";
         private const string RetrievalServiceUrl = "http://localhost:8082/api/search";
+        private const string LLMServiceUrl = "http://localhost:8083/api/llm";
 
         public HomeController(ILogger<HomeController> logger)
         {
@@ -105,6 +106,110 @@ namespace Client.Controllers
             }
             catch (Exception ex)
             {
+                ViewBag.Error = $"Error: {ex.Message}";
+                ViewBag.DocumentId = documentId;
+                ViewBag.VersionId = versionId;
+                return View();
+            }
+        }
+        #endregion
+
+        #region LLM Service
+        // GET: /Home/Ask/{documentId}/{versionId}
+        public IActionResult Ask(string documentId, string versionId)
+        {
+            ViewBag.DocumentId = documentId;
+            ViewBag.VersionId = versionId;
+            return View();
+        }
+
+        // POST: /Home/Ask
+        [HttpPost]
+        public async Task<IActionResult> Ask(string documentId, string versionId, string query, int topK = 3)
+        {
+            try
+            {
+                _logger.LogInformation($"Processing question: {query}");
+
+                // 1. Pozovi Retrieval Service za relevantne chunk-ove
+                var searchRequest = new SearchRequest
+                {
+                    Query = query,
+                    DocumentId = documentId,
+                    VersionId = versionId,
+                    TopK = topK
+                };
+
+                var searchJson = JsonSerializer.Serialize(searchRequest);
+                var searchContent = new StringContent(searchJson, Encoding.UTF8, "application/json");
+
+                var searchResponse = await _httpClient.PostAsync(RetrievalServiceUrl, searchContent);
+
+                if (!searchResponse.IsSuccessStatusCode)
+                {
+                    ViewBag.Error = "Failed to retrieve relevant context";
+                    ViewBag.DocumentId = documentId;
+                    ViewBag.VersionId = versionId;
+                    return View();
+                }
+
+                var searchResultJson = await searchResponse.Content.ReadAsStringAsync();
+                var searchResult = JsonSerializer.Deserialize<SearchResponse>(searchResultJson, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                _logger.LogInformation($"Retrieved {searchResult.Results.Count} relevant chunks");
+
+                // 2. Pripremi context za LLM
+                var contextChunks = searchResult.Results
+                    .Select(r => r.Text)
+                    .ToList();
+
+                // 3. Pozovi LLM Service
+                var llmRequest = new LLMRequest
+                {
+                    Query = query,
+                    Context = contextChunks,
+                    SystemPrompt = "You are a helpful AI assistant specialized in regulatory and policy documents. Answer in Serbian language."
+                };
+
+                var llmJson = JsonSerializer.Serialize(llmRequest);
+                var llmContent = new StringContent(llmJson, Encoding.UTF8, "application/json");
+
+                var llmResponse = await _httpClient.PostAsync($"{LLMServiceUrl}/generate", llmContent);
+
+                if (!llmResponse.IsSuccessStatusCode)
+                {
+                    var errorContent = await llmResponse.Content.ReadAsStringAsync();
+                    ViewBag.Error = $"LLM failed: {errorContent}";
+                    ViewBag.DocumentId = documentId;
+                    ViewBag.VersionId = versionId;
+                    return View();
+                }
+
+                var llmResultJson = await llmResponse.Content.ReadAsStringAsync();
+                var llmResult = JsonSerializer.Deserialize<LLMResponse>(llmResultJson, new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true
+                });
+
+                _logger.LogInformation($"LLM generated answer: {llmResult.Answer.Length} chars");
+
+                // 4. Vrati rezultat
+                ViewBag.DocumentId = documentId;
+                ViewBag.VersionId = versionId;
+                ViewBag.Query = query;
+                ViewBag.Answer = llmResult.Answer;
+                ViewBag.Model = llmResult.Model;
+                ViewBag.TokensUsed = llmResult.TokensUsed;
+                ViewBag.RetrievedChunks = searchResult.Results;
+
+                return View();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing question");
                 ViewBag.Error = $"Error: {ex.Message}";
                 ViewBag.DocumentId = documentId;
                 ViewBag.VersionId = versionId;

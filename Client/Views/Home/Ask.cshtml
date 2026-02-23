@@ -1,0 +1,93 @@
+﻿@using Client.Models
+@{
+    ViewData["Title"] = "Ask Question";
+    var retrievedChunks = ViewBag.RetrievedChunks as List<SearchResult>;
+}
+
+<div class="container mt-4">
+    <h2>🤖 Ask AI Assistant</h2>
+    <p class="text-muted">Document ID: @ViewBag.DocumentId | Version ID: @ViewBag.VersionId</p>
+
+    @if (ViewBag.Error != null)
+    {
+        <div class="alert alert-danger">@ViewBag.Error</div>
+    }
+
+    <form method="post" class="mt-4">
+        <input type="hidden" name="documentId" value="@ViewBag.DocumentId" />
+        <input type="hidden" name="versionId" value="@ViewBag.VersionId" />
+
+        <div class="form-group mb-3">
+            <label><strong>Your question:</strong></label>
+            <textarea name="query" class="form-control" rows="3"
+                      placeholder="e.g., Šta su IKT sistemi prema ovom zakonu?"
+                      required>@ViewBag.Query</textarea>
+        </div>
+
+        <div class="form-group mb-3">
+            <label><strong>Number of context chunks (Top K):</strong></label>
+            <input type="number" name="topK" class="form-control"
+                   value="3" min="1" max="10" />
+            <small class="form-text text-muted">How many relevant document sections to use as context</small>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-lg">
+            🤖 Ask AI
+        </button>
+        <a asp-action="Versions" asp-route-documentId="@ViewBag.DocumentId" class="btn btn-secondary">
+            ← Back to Versions
+        </a>
+    </form>
+
+    @if (ViewBag.Answer != null)
+    {
+        <hr class="my-4" />
+
+        <div class="card border-success mb-4">
+            <div class="card-header bg-success text-white">
+                <h4 class="mb-0">🤖 AI Answer</h4>
+            </div>
+            <div class="card-body">
+                <div class="alert alert-light">
+                    <strong>Question:</strong> @ViewBag.Query
+                </div>
+                <div style="font-size: 1.1em; line-height: 1.6; white-space: pre-wrap;">@ViewBag.Answer</div>
+                <hr />
+                <small class="text-muted">
+                    Model: @ViewBag.Model | Tokens used: @ViewBag.TokensUsed
+                </small>
+            </div>
+        </div>
+
+        @if (retrievedChunks != null && retrievedChunks.Count > 0)
+        {
+            <h4 class="mt-4">📚 Context Used (Top @retrievedChunks.Count)</h4>
+            <div class="accordion" id="contextAccordion">
+                @for (int i = 0; i < retrievedChunks.Count; i++)
+                {
+                    var chunk = retrievedChunks[i];
+                    var scorePercent = (chunk.Score * 100).ToString("F1");
+                    var badgeClass = chunk.Score >= 0.7f ? "bg-success" :
+                    chunk.Score >= 0.5f ? "bg-warning" : "bg-secondary";
+
+                    <div class="accordion-item">
+                        <h2 class="accordion-header" id="heading@i">
+                            <button class="accordion-button @(i == 0 ? "" : "collapsed")" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#collapse@i"
+                                    aria-expanded="@(i == 0 ? "true" : "false")" aria-controls="collapse@i">
+                                Chunk #@chunk.ChunkIndex
+                                <span class="badge @badgeClass ms-2">Similarity: @scorePercent%</span>
+                            </button>
+                        </h2>
+                        <div id="collapse@i" class="accordion-collapse collapse @(i == 0 ? "show" : "")"
+                             aria-labelledby="heading@i" data-bs-parent="#contextAccordion">
+                            <div class="accordion-body">
+                                <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 0.9em; margin: 0;">@chunk.Text</pre>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>

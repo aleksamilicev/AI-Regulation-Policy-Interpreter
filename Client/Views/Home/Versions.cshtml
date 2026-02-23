@@ -84,6 +84,9 @@
                                 <a asp-action="Search" asp-route-documentId="@ViewBag.DocumentId" asp-route-versionId="@version.VersionId" class="btn btn-sm btn-success">
                                     🔍 Search
                                 </a>
+                                <a asp-action="Ask" asp-route-documentId="@ViewBag.DocumentId" asp-route-versionId="@version.VersionId" class="btn btn-sm btn-warning">
+                                    🤖 Ask AI
+                                </a>
                             }
                         </td>
                     </tr>
