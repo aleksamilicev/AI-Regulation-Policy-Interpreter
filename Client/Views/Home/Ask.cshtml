@@ -2,6 +2,8 @@
 @{
     ViewData["Title"] = "Ask Question";
     var retrievedChunks = ViewBag.RetrievedChunks as List<SearchResult>;
+    var citations = ViewBag.Citations as List<Citation>;
+    var hasSufficientContext = ViewBag.HasSufficientContext ?? true;
 }
 
 <div class="container mt-4">
@@ -43,6 +45,13 @@
     {
         <hr class="my-4" />
 
+        @if (!hasSufficientContext)
+        {
+            <div class="alert alert-warning">
+                <strong>⚠️ Warning:</strong> The context may not contain sufficient information for a complete answer.
+            </div>
+        }
+
         <div class="card border-success mb-4">
             <div class="card-header bg-success text-white">
                 <h4 class="mb-0">🤖 AI Answer</h4>
@@ -59,9 +68,25 @@
             </div>
         </div>
 
+        @if (citations != null && citations.Count > 0)
+        {
+            <div class="alert alert-info">
+                <h5>📌 Citations (@citations.Count)</h5>
+                @foreach (var citation in citations)
+                {
+                    <div class="mb-3">
+                        <strong>[Chunk @(citation.ChunkIndex + 1)]:</strong>
+                        <em>"@citation.Quote"</em>
+                        <br />
+                        <small class="text-muted">@citation.Relevance</small>
+                    </div>
+                }
+            </div>
+        }
+
         @if (retrievedChunks != null && retrievedChunks.Count > 0)
         {
-            <h4 class="mt-4">📚 Context Used (Top @retrievedChunks.Count)</h4>
+            <h4 class="mt-4">📚 Full Context Used (Top @retrievedChunks.Count)</h4>
             <div class="accordion" id="contextAccordion">
                 @for (int i = 0; i < retrievedChunks.Count; i++)
                 {
@@ -69,6 +94,7 @@
                     var scorePercent = (chunk.Score * 100).ToString("F1");
                     var badgeClass = chunk.Score >= 0.7f ? "bg-success" :
                     chunk.Score >= 0.5f ? "bg-warning" : "bg-secondary";
+                    var isCited = citations?.Any(c => c.ChunkIndex == i) ?? false;
 
                     <div class="accordion-item">
                         <h2 class="accordion-header" id="heading@i">
@@ -77,6 +103,10 @@
                                     aria-expanded="@(i == 0 ? "true" : "false")" aria-controls="collapse@i">
                                 Chunk #@chunk.ChunkIndex
                                 <span class="badge @badgeClass ms-2">Similarity: @scorePercent%</span>
+                                @if (isCited)
+                                {
+                                    <span class="badge bg-primary ms-2">✓ Cited</span>
+                                }
                             </button>
                         </h2>
                         <div id="collapse@i" class="accordion-collapse collapse @(i == 0 ? "show" : "")"

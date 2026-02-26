@@ -204,6 +204,8 @@ namespace Client.Controllers
                 ViewBag.Model = llmResult.Model;
                 ViewBag.TokensUsed = llmResult.TokensUsed;
                 ViewBag.RetrievedChunks = searchResult.Results;
+                ViewBag.Citations = llmResult.Citations;
+                ViewBag.HasSufficientContext = llmResult.HasSufficientContext;
 
                 return View();
             }
