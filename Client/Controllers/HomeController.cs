@@ -171,7 +171,10 @@ namespace Client.Controllers
                 {
                     Query = query,
                     Context = contextChunks,
-                    SystemPrompt = "You are a helpful AI assistant specialized in regulatory and policy documents. Answer in Serbian language."
+                    SystemPrompt = @"Ti si precizan AI asistent za srpske pravne dokumente.
+                    KLJUÈNO PRAVILO: Kad korisnik pita 'Šta je X?' ili 'Šta su X?', 
+                    pronaði DEFINICIJU iz Èlana 2 ili drugih èlanova.
+                    Odgovaraj samo na osnovu konteksta. Ne izmišljaj."
                 };
 
                 var llmJson = JsonSerializer.Serialize(llmRequest);

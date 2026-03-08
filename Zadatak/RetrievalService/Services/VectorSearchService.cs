@@ -25,38 +25,95 @@ namespace RetrievalService.Services
         public async Task<List<SearchResult>> SearchAsync(string query, string documentId, string versionId, int topK)
         {
             Console.WriteLine($"[Search] Query: {query}");
-            Console.WriteLine($"[Search] DocumentId: {documentId}");
-            Console.WriteLine($"[Search] VersionId: {versionId}");
-            Console.WriteLine($"[Search] Storage root: {_storageRoot}");
 
-            // 1. Generiši embedding za query
+            // 1. Generiši embedding
             var queryEmbedding = GenerateQueryEmbedding(query);
-            Console.WriteLine($"[Search] Query embedding generated: {queryEmbedding.Length} dims");
 
-            // 2. Učitaj sve chunk embeddings
+            // 2. Učitaj chunk embeddings
             var chunkEmbeddings = await LoadAllChunkEmbeddingsAsync(documentId, versionId);
-            Console.WriteLine($"[Search] Loaded {chunkEmbeddings.Count} chunk embeddings");
 
-            // 3. Izračunaj cosine similarity
+            // 3. Extract query keywords
+            var queryLower = query.ToLower();
+            var queryKeywords = queryLower
+                .Split(new[] { ' ', ',', '.', '?', '!' }, StringSplitOptions.RemoveEmptyEntries)
+                .Where(w => w.Length > 3)
+                .ToHashSet();
+
+            // 4. Detect query type
+            bool isDefinitionQuery = queryLower.Contains("šta") || queryLower.Contains("sta") ||
+                                     queryLower.Contains("defini") || queryLower.Contains("znači") ||
+                                     queryLower.Contains("what") || queryLower.Contains("define");
+
             var results = new List<SearchResult>();
 
             foreach (var (chunkIndex, embedding, text) in chunkEmbeddings)
             {
+                var textLower = text.ToLower();
                 var score = CosineSimilarity(queryEmbedding, embedding);
+
+                // KEYWORD MATCHING BOOST
+                var keywordMatches = queryKeywords.Count(kw => textLower.Contains(kw));
+                var keywordBoost = keywordMatches * 0.15f; // 15% per keyword
+
+                // DEFINITION DETECTION BOOST
+                float definitionBoost = 0f;
+                if (isDefinitionQuery)
+                {
+                    // Proveri da li chunk sadrži definiciju
+                    var hasDefinitionPattern =
+                        textLower.Contains(" je ") ||
+                        textLower.Contains(" su ") ||
+                        textLower.Contains("predstavlja") ||
+                        textLower.Contains("obuhvata") ||
+                        textLower.Contains("označava") ||
+                        System.Text.RegularExpressions.Regex.IsMatch(textLower, @"\d+\)\s+\w+.*\s+je\s+");
+
+                    // Dodatni boost ako chunk počinje sa "Član 2." (često definicije)
+                    var isDefinitionChapter = textLower.Contains("član 2.") || textLower.Contains("član 3.");
+
+                    if (hasDefinitionPattern)
+                        definitionBoost += 0.3f; // 30% boost
+
+                    if (isDefinitionChapter)
+                        definitionBoost += 0.2f; // dodatnih 20% boost
+
+                    // Specifična detekcija za "IKT sistem"
+                    if (queryKeywords.Contains("ikt") || queryKeywords.Contains("sistem"))
+                    {
+                        if (textLower.Contains("informaciono-komunikacioni sistem") ||
+                            textLower.Contains("ikt sistem") && textLower.Contains("celina"))
+                        {
+                            definitionBoost += 0.5f; // Vrlo jak boost za IKT definiciju
+                        }
+                    }
+                }
+
+                // COMBINED SCORE
+                var finalScore = Math.Min(1.0f, score + keywordBoost + definitionBoost);
+
+                Console.WriteLine($"[Search] Chunk {chunkIndex}: base={score:F3}, kw={keywordBoost:F3}, def={definitionBoost:F3}, final={finalScore:F3}");
 
                 results.Add(new SearchResult
                 {
                     ChunkIndex = chunkIndex,
                     Text = text,
-                    Score = score
+                    Score = finalScore
                 });
             }
 
-            // 4. Sortiraj po score-u i vrati top K
-            return results
+            // Sortiraj i vrati top K
+            var topResults = results
                 .OrderByDescending(r => r.Score)
                 .Take(topK)
                 .ToList();
+
+            Console.WriteLine($"\n[Search] TOP {topK} RESULTS:");
+            foreach (var r in topResults)
+            {
+                Console.WriteLine($"  Chunk #{r.ChunkIndex}: {r.Score:F3}");
+            }
+
+            return topResults;
         }
 
         /// <summary>

@@ -29,7 +29,7 @@
         <div class="form-group mb-3">
             <label><strong>Number of context chunks (Top K):</strong></label>
             <input type="number" name="topK" class="form-control"
-                   value="3" min="1" max="10" />
+                   value="5" min="1" max="10" />
             <small class="form-text text-muted">How many relevant document sections to use as context</small>
         </div>
 
@@ -74,7 +74,7 @@
                 <h5>📌 Citations (@citations.Count)</h5>
                 @foreach (var citation in citations)
                 {
-                    <div class="mb-3">
+                    <div class="mb-3 p-3 border-start border-primary border-4">
                         <strong>[Chunk @(citation.ChunkIndex + 1)]:</strong>
                         <em>"@citation.Quote"</em>
                         <br />
@@ -94,13 +94,19 @@
                     var scorePercent = (chunk.Score * 100).ToString("F1");
                     var badgeClass = chunk.Score >= 0.7f ? "bg-success" :
                     chunk.Score >= 0.5f ? "bg-warning" : "bg-secondary";
+
+                    // VAŽNO: Proveri da li je chunk citiran (ChunkIndex je ID chunk-a u dokumentu)
                     var isCited = citations?.Any(c => c.ChunkIndex == i) ?? false;
 
+                    // Jedinstveni ID za accordion
+                    var accordionId = $"collapse{i}";
+                    var headingId = $"heading{i}";
+
                     <div class="accordion-item">
-                        <h2 class="accordion-header" id="heading@i">
-                            <button class="accordion-button @(i == 0 ? "" : "collapsed")" type="button"
-                                    data-bs-toggle="collapse" data-bs-target="#collapse@i"
-                                    aria-expanded="@(i == 0 ? "true" : "false")" aria-controls="collapse@i">
+                        <h2 class="accordion-header" id="@headingId">
+                            <button class="accordion-button collapsed" type="button"
+                                    data-bs-toggle="collapse" data-bs-target="#@accordionId"
+                                    aria-expanded="false" aria-controls="@accordionId">
                                 Chunk #@chunk.ChunkIndex
                                 <span class="badge @badgeClass ms-2">Similarity: @scorePercent%</span>
                                 @if (isCited)
@@ -109,8 +115,8 @@
                                 }
                             </button>
                         </h2>
-                        <div id="collapse@i" class="accordion-collapse collapse @(i == 0 ? "show" : "")"
-                             aria-labelledby="heading@i" data-bs-parent="#contextAccordion">
+                        <div id="@accordionId" class="accordion-collapse collapse"
+                             aria-labelledby="@headingId" data-bs-parent="#contextAccordion">
                             <div class="accordion-body">
                                 <pre style="white-space: pre-wrap; font-family: 'Courier New', monospace; font-size: 0.9em; margin: 0;">@chunk.Text</pre>
                             </div>

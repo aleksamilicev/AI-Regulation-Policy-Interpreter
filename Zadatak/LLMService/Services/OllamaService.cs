@@ -19,7 +19,7 @@ namespace LLMService.Services
         {
             _httpClient = new HttpClient
             {
-                Timeout = TimeSpan.FromMinutes(5)
+                Timeout = TimeSpan.FromMinutes(10)
             };
         }
 
@@ -39,7 +39,13 @@ namespace LLMService.Services
             {
                 model = Model,
                 prompt = prompt,
-                stream = false
+                stream = false,
+                options = new
+                {
+                    temperature = 0.1,  // NISKA temperatura = manje kreativnosti, više preciznosti
+                    top_p = 0.9,
+                    top_k = 40
+                }
             };
 
             var json = JsonSerializer.Serialize(requestBody);
@@ -110,51 +116,52 @@ namespace LLMService.Services
         {
             var sb = new StringBuilder();
 
-            // System prompt
-            if (!string.IsNullOrWhiteSpace(systemPrompt))
-            {
-                sb.AppendLine(systemPrompt);
-            }
-            else
-            {
-                sb.AppendLine("You are a helpful AI assistant specialized in analyzing regulatory and policy documents.");
-            }
-
+            sb.AppendLine("Ti si AI asistent specijalizovan za analizu pravnih dokumenata.");
             sb.AppendLine();
-            sb.AppendLine("IMPORTANT INSTRUCTIONS:");
-            sb.AppendLine("1. Answer the question ONLY based on the provided context.");
-            sb.AppendLine("2. When you use information from a chunk, CITE it using [Chunk X] notation.");
-            sb.AppendLine("3. If you quote directly, use quotation marks and cite the source.");
-
-            if (!hasSufficientContext)
-            {
-                sb.AppendLine("4. WARNING: The context may not contain sufficient information. If you cannot answer confidently, explicitly state: 'Based on the provided context, I cannot provide a complete answer because [reason].'");
-            }
-            else
-            {
-                sb.AppendLine("4. Provide a clear and complete answer.");
-            }
-
+            sb.AppendLine("═══════════════════════════════════════════════════════");
+            sb.AppendLine("STROGA PRAVILA - OBAVEZNO POŠTUJ:");
+            sb.AppendLine("═══════════════════════════════════════════════════════");
+            sb.AppendLine();
+            sb.AppendLine("1. ODGOVARAJ ISKLJUČIVO NA OSNOVU DOSTAVLJENOG KONTEKSTA");
+            sb.AppendLine("   - NE koristi svoje predznanje");
+            sb.AppendLine("   - NE izmišljaj informacije");
+            sb.AppendLine("   - Ako odgovor nije u kontekstu: 'Na osnovu dostupnog konteksta ne mogu odgovoriti.'");
+            sb.AppendLine();
+            sb.AppendLine("2. CITIRANJE:");
+            sb.AppendLine("   - UVEK navedi [Chunk X] odmah nakon informacije");
+            sb.AppendLine("   - Primer: IKT sistem je tehnološka celina [Chunk 1].");
+            sb.AppendLine();
+            sb.AppendLine("3. CITATI:");
+            sb.AppendLine("   - Kada citiraš direktno, koristi navodnike");
+            sb.AppendLine("   - Drži citate kratkim (max 15-20 reči)");
+            sb.AppendLine("   - Primer: Prema zakonu, IKT sistem je \"tehnološko-organizaciona celina\" [Chunk 1].");
+            sb.AppendLine();
+            sb.AppendLine("4. ZA PITANJA SA 'ŠTA JE' ili 'ŠTA SU':");
+            sb.AppendLine("   - Prvo pronađi DEFINICIJU u kontekstu");
+            sb.AppendLine("   - Citiraj TAČNU definiciju iz propisa");
+            sb.AppendLine("   - Ne parafraziraj ako postoji direktna definicija");
+            sb.AppendLine();
+            sb.AppendLine("5. ODGOVARAJ NA SRPSKOM JEZIKU");
+            sb.AppendLine();
+            sb.AppendLine("═══════════════════════════════════════════════════════");
+            sb.AppendLine();
+            sb.AppendLine("KONTEKST (sortirano po relevantnosti):");
             sb.AppendLine();
 
-            // Kontekst sa brojevima
-            if (contextChunks != null && contextChunks.Length > 0)
+            for (int i = 0; i < contextChunks.Length; i++)
             {
-                sb.AppendLine("=== CONTEXT ===");
-                for (int i = 0; i < contextChunks.Length; i++)
-                {
-                    sb.AppendLine($"[Chunk {i + 1}]");
-                    sb.AppendLine(contextChunks[i]);
-                    sb.AppendLine();
-                }
-                sb.AppendLine("=== END CONTEXT ===");
+                sb.AppendLine($"[Chunk {i + 1}]");
+                sb.AppendLine("───────────────────────────────────────────────────────");
+                sb.AppendLine(contextChunks[i]);
+                sb.AppendLine("───────────────────────────────────────────────────────");
                 sb.AppendLine();
             }
 
-            // Query
-            sb.AppendLine($"Question: {query}");
+            sb.AppendLine("═══════════════════════════════════════════════════════");
+            sb.AppendLine($"PITANJE: {query}");
+            sb.AppendLine("═══════════════════════════════════════════════════════");
             sb.AppendLine();
-            sb.AppendLine("Answer (with citations):");
+            sb.AppendLine("ODGOVOR (sa citatima i referencama):");
 
             return sb.ToString();
         }
@@ -202,15 +209,75 @@ namespace LLMService.Services
 
             chunk = chunk.Trim();
 
+            // Pattern 1: Ako chunk sadrži definiciju (npr. "je" ili "predstavlja")
+            var definitionPatterns = new[]
+            {
+        @"(\w+\s+(?:je|predstavlja|su|označava|obuhvata))\s+([^.;]+)",
+        @"(\d+\)\s*\w+[^-]+-[^-]+-\w+\s+\([^\)]+\))\s+je\s+([^;]+)"
+    };
+
+            foreach (var pattern in definitionPatterns)
+            {
+                var match = System.Text.RegularExpressions.Regex.Match(chunk, pattern);
+                if (match.Success && match.Length <= maxLength)
+                {
+                    // Vraća definiciju (npr. "IKT sistem je tehnološko-organizaciona celina koja...")
+                    var quote = match.Value.Trim();
+                    if (quote.Length > maxLength)
+                    {
+                        quote = quote.Substring(0, maxLength);
+                        var lastSpace = quote.LastIndexOf(' ');
+                        if (lastSpace > 0)
+                            quote = quote.Substring(0, lastSpace);
+                        quote += "...";
+                    }
+                    return quote;
+                }
+            }
+
+            // Pattern 2: Ako chunk počinje sa "Član X."
+            var memberPattern = new System.Text.RegularExpressions.Regex(@"^Član \d+\.\s*");
+            var memberMatch = memberPattern.Match(chunk);
+
+            if (memberMatch.Success)
+            {
+                // Uzmi prvu rečenicu nakon "Član X."
+                var afterMember = chunk.Substring(memberMatch.Length).Trim();
+
+                // Pronađi prvu tačku
+                var firstPeriod = afterMember.IndexOf('.');
+                if (firstPeriod > 0 && firstPeriod <= maxLength)
+                {
+                    return memberMatch.Value.TrimEnd() + " " + afterMember.Substring(0, firstPeriod + 1);
+                }
+
+                // Ako je prva rečenica predugačka, uzmi maxLength
+                var preview = afterMember.Length <= maxLength
+                    ? afterMember
+                    : afterMember.Substring(0, maxLength);
+
+                var lastSpace = preview.LastIndexOf(' ');
+                if (lastSpace > 0)
+                    preview = preview.Substring(0, lastSpace);
+
+                return $"{memberMatch.Value.TrimEnd()} {preview}...";
+            }
+
+            // Fallback: Prva rečenica ili prvih maxLength karaktera
+            var firstSentence = chunk.IndexOf('.');
+            if (firstSentence > 0 && firstSentence <= maxLength)
+            {
+                return chunk.Substring(0, firstSentence + 1);
+            }
+
             if (chunk.Length <= maxLength)
                 return chunk;
 
-            // Uzmi prvih maxLength karaktera i završi na celoj reči
             var truncated = chunk.Substring(0, maxLength);
-            var lastSpace = truncated.LastIndexOf(' ');
+            var lastSpaceIndex = truncated.LastIndexOf(' ');
 
-            if (lastSpace > 0)
-                truncated = truncated.Substring(0, lastSpace);
+            if (lastSpaceIndex > 0)
+                truncated = truncated.Substring(0, lastSpaceIndex);
 
             return truncated + "...";
         }
