@@ -126,11 +126,9 @@ namespace LLMService.Services
             return sb.ToString();
         }
 
-        /// <summary>
-        /// Determines which chunks were actually used in the answer by measuring
-        /// keyword overlap between the LLM answer and each chunk.
-        /// Only chunks with meaningful overlap are shown as citations.
-        /// </summary>
+        // Determines which chunks were actually used in the answer by measuring
+        // keyword overlap between the LLM answer and each chunk.
+        // Only chunks with meaningful overlap are shown as citations.
         private List<Citation> MatchCitationsToAnswer(string answer, string[] contextChunks)
         {
             var citations = new List<Citation>();
@@ -217,10 +215,8 @@ namespace LLMService.Services
             return citations;
         }
 
-        /// <summary>
-        /// Extracts the most meaningful representative quote from a chunk.
-        /// Priority: definition sentence > article opener > first sentence > truncated start.
-        /// </summary>
+        // Extracts the most meaningful representative quote from a chunk.
+        // Priority: definition sentence > article opener > first sentence > truncated start.
         private string ExtractBestQuote(string chunk, int maxLength)
         {
             if (string.IsNullOrWhiteSpace(chunk))

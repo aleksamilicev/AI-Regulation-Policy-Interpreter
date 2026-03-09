@@ -414,9 +414,9 @@ namespace DocumentService.Controllers
         }
 
         private List<string> CreateSemanticChunks(
-    string text,
-    int maxChunkSize = 1200,
-    int minChunkSize = 200)
+            string text,
+            int maxChunkSize = 1200,
+            int minChunkSize = 200)
         {
             var chunks = new List<string>();
 

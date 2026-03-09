@@ -19,9 +19,7 @@ namespace RetrievalService.Services
             Console.WriteLine($"[VectorSearch] Using storage: {_storageRoot}");
         }
 
-        /// <summary>
-        /// Glavni search metod - pronalazi najsličnije chunk-ove
-        /// </summary>
+        // Glavna search funkcija, pronalazi najsličnije chunk-ove
         public async Task<List<SearchResult>> SearchAsync(string query, string documentId, string versionId, int topK)
         {
             Console.WriteLine($"[Search] Query: {query}");
@@ -116,9 +114,7 @@ namespace RetrievalService.Services
             return topResults;
         }
 
-        /// <summary>
-        /// Učitaj sve embeddings za dati dokument verziju
-        /// </summary>
+        // Učitava sve embedding-e za datu dokument verziju
         private async Task<List<(int ChunkIndex, float[] Embedding, string Text)>> LoadAllChunkEmbeddingsAsync(string documentId, string versionId)
         {
             var results = new List<(int, float[], string)>();
@@ -194,9 +190,7 @@ namespace RetrievalService.Services
             return results;
         }
 
-        /// <summary>
-        /// Generiši embedding za query (mock implementacija)
-        /// </summary>
+        // Generiše embedding za query
         private float[] GenerateQueryEmbedding(string query)
         {
             // TODO: Kasnije integrisati sa pravim embedding modelom
@@ -220,9 +214,7 @@ namespace RetrievalService.Services
             return embedding;
         }
 
-        /// <summary>
-        /// Cosine similarity između dva vektora
-        /// </summary>
+        // Cosine similarity između dva vektora
         private float CosineSimilarity(float[] a, float[] b)
         {
             if (a.Length != b.Length)

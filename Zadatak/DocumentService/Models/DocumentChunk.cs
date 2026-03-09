@@ -1,5 +1,4 @@
-﻿// Models/DocumentChunk.cs
-using System;
+﻿using System;
 
 namespace DocumentService.Models
 {
