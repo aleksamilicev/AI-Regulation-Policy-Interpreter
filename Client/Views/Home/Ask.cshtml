@@ -7,7 +7,7 @@
 }
 
 <div class="container mt-4">
-    <h2>🤖 Ask AI Assistant</h2>
+    <h2>Ask AI Assistant</h2>
     <p class="text-muted">Document ID: @ViewBag.DocumentId | Version ID: @ViewBag.VersionId</p>
 
     @if (ViewBag.Error != null)
@@ -34,10 +34,10 @@
         </div>
 
         <button type="submit" class="btn btn-primary btn-lg">
-            🤖 Ask AI
+            Ask AI
         </button>
         <a asp-action="Versions" asp-route-documentId="@ViewBag.DocumentId" class="btn btn-secondary">
-            ← Back to Versions
+            Back to Versions
         </a>
     </form>
 
@@ -48,13 +48,13 @@
         @if (!hasSufficientContext)
         {
             <div class="alert alert-warning">
-                <strong>⚠️ Warning:</strong> The context may not contain sufficient information for a complete answer.
+                <strong>Warning:</strong> The context may not contain sufficient information for a complete answer.
             </div>
         }
 
         <div class="card border-success mb-4">
             <div class="card-header bg-success text-white">
-                <h4 class="mb-0">🤖 AI Answer</h4>
+                <h4 class="mb-0">AI Answer</h4>
             </div>
             <div class="card-body">
                 <div class="alert alert-light">
@@ -71,7 +71,7 @@
         @if (citations != null && citations.Count > 0)
         {
             <div class="alert alert-info">
-                <h5>📌 Citations (@citations.Count)</h5>
+                <h5>Citations (@citations.Count)</h5>
                 @foreach (var citation in citations)
                 {
                     <div class="mb-3 p-3 border-start border-primary border-4">
@@ -86,7 +86,7 @@
 
         @if (retrievedChunks != null && retrievedChunks.Count > 0)
         {
-            <h4 class="mt-4">📚 Full Context Used (Top @retrievedChunks.Count)</h4>
+            <h4 class="mt-4">Full Context Used (Top @retrievedChunks.Count)</h4>
             <div class="accordion" id="contextAccordion">
                 @for (int i = 0; i < retrievedChunks.Count; i++)
                 {

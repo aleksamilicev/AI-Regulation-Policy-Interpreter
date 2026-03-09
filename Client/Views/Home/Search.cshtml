@@ -5,7 +5,7 @@
 }
 
 <div class="container mt-4">
-    <h2>🔍 Search Document</h2>
+    <h2>Search Document</h2>
     <p class="text-muted">Document ID: @ViewBag.DocumentId | Version ID: @ViewBag.VersionId</p>
 
     @if (ViewBag.Error != null)
@@ -31,10 +31,10 @@
         </div>
 
         <button type="submit" class="btn btn-primary btn-lg">
-            🔎 Search
+            Search
         </button>
         <a asp-action="Versions" asp-route-documentId="@ViewBag.DocumentId" class="btn btn-secondary">
-            ← Back to Versions
+            Back to Versions
         </a>
     </form>
 
@@ -53,7 +53,7 @@
         }
         else
         {
-            <h3 class="mt-4">📊 Top @searchResponse.Results.Count Results</h3>
+            <h3 class="mt-4">Top @searchResponse.Results.Count Results</h3>
 
             @foreach (var result in searchResponse.Results)
             {

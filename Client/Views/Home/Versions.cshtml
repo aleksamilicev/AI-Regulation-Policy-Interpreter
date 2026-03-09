@@ -3,26 +3,21 @@
 @{
     ViewData["Title"] = "Document Versions";
 }
-
 <div class="container mt-4">
-    <h2>📚 Document Versions</h2>
+    <h2>Document Versions</h2>
     <p class="text-muted">Document ID: @ViewBag.DocumentId</p>
-
     @if (ViewBag.Error != null)
     {
         <div class="alert alert-danger">@ViewBag.Error</div>
     }
-
     @if (TempData["Success"] != null)
     {
         <div class="alert alert-success">@TempData["Success"]</div>
     }
-
     @if (TempData["Error"] != null)
     {
         <div class="alert alert-danger">@TempData["Error"]</div>
     }
-
     <table class="table table-striped mt-4">
         <thead class="table-dark">
             <tr>
@@ -82,10 +77,10 @@
                                     View Chunks
                                 </a>
                                 <a asp-action="Search" asp-route-documentId="@ViewBag.DocumentId" asp-route-versionId="@version.VersionId" class="btn btn-sm btn-success">
-                                    🔍 Search
+                                    Search
                                 </a>
                                 <a asp-action="Ask" asp-route-documentId="@ViewBag.DocumentId" asp-route-versionId="@version.VersionId" class="btn btn-sm btn-warning">
-                                    🤖 Ask AI
+                                    Ask AI
                                 </a>
                             }
                         </td>
@@ -94,9 +89,8 @@
             }
         </tbody>
     </table>
-
     <a asp-action="AddVersion" asp-route-documentId="@ViewBag.DocumentId" class="btn btn-success">
-        ➕ Add New Version
+        + Add New Version
     </a>
-    <a asp-action="Documents" class="btn btn-secondary">← Back to Documents</a>
+    <a asp-action="Documents" class="btn btn-secondary">Back to Documents</a>
 </div>

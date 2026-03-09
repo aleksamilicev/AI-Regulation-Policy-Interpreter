@@ -3,7 +3,7 @@
 }
 
 <div class="container mt-4">
-    <h2>📤 Upload Document</h2>
+    <h2>Upload Document</h2>
 
     @if (ViewBag.Error != null)
     {
@@ -20,7 +20,7 @@
         <div class="form-group mb-3">
             <label>Select File</label>
             <input type="file" name="file" class="form-control" accept=".pdf,.docx,.txt" required />
-            <small class="form-text text-muted">Accepted formats: PDF, DOCX, TXT</small>
+            <small class="form-text text-muted">Accepted format: PDF</small>
         </div>
 
         <button type="submit" class="btn btn-primary">Upload</button>

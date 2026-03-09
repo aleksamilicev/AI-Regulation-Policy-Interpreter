@@ -83,13 +83,14 @@ namespace LLMService.Services
                 .ToHashSet();
 
             if (queryWords.Count == 0)
-                return true;
+                return false;
 
+            // minimum 50% query words mora biti u bilo kom chunku
             return contextChunks.Any(chunk =>
             {
                 var chunkLower = chunk.ToLower();
                 int matches = queryWords.Count(word => chunkLower.Contains(word));
-                return matches >= Math.Max(1, queryWords.Count / 3);
+                return matches >= Math.Ceiling(queryWords.Count * 0.5);
             });
         }
 
@@ -101,11 +102,12 @@ namespace LLMService.Services
             sb.AppendLine();
             sb.AppendLine("PRAVILA:");
             sb.AppendLine("1. Odgovaraj ISKLJUČIVO na osnovu dostavljenog konteksta — ne koristi sopstveno znanje.");
-            sb.AppendLine("2. Ako odgovor nije u kontekstu, napiši: 'Na osnovu dostupnog konteksta ne mogu odgovoriti.'");
+            sb.AppendLine("2. Ako pitanje nije pokriveno kontekstom, NEMOJ dodavati informacije van konteksta. Odgovori samo: 'Na osnovu dostupnog konteksta ne mogu odgovoriti.'");
             sb.AppendLine("3. Daj DETALJAN i KONKRETAN odgovor — navedi definiciju, kategorije, obaveze i primere iz konteksta.");
             sb.AppendLine("4. Koristi srpski jezik ispravno. Piši 'člana' (ne 'članka').");
             sb.AppendLine("5. Kada navodiš direktno iz teksta zakona, koristi navodnike.");
-            sb.AppendLine("6. Strukturiraj odgovor jasno — koristi pasuse ili nabrajanje gde je prikladno.");
+            sb.AppendLine("6. Pored teksta koristi i teksta zakona, citate, koji će da budu pod navodnicima.");
+            sb.AppendLine("7. Strukturiraj odgovor jasno — koristi pasuse ili nabrajanje gde je prikladno.");
             sb.AppendLine();
             sb.AppendLine("KONTEKST:");
             sb.AppendLine();
@@ -185,9 +187,9 @@ namespace LLMService.Services
 
                 Console.WriteLine($"[Citations] Chunk {i + 1}: overlap={overlap}/{uniqueChunkWords.Count} ({overlapRatio:P0})");
 
-                // Threshold: at least 35% of chunk's unique words appear in the answer
+                // Threshold: at least 25% of chunk's unique words appear in the answer
                 // AND at least 4 words overlap (prevents false positives on short chunks)
-                if (overlapRatio >= 0.35f && overlap >= 3)
+                if (overlapRatio >= 0.25f && overlap >= 3)
                 {
                     var quote = ExtractBestQuote(contextChunks[i], 220);
                     citations.Add(new Citation
