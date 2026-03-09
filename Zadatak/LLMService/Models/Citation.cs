@@ -11,5 +11,6 @@ namespace LLMService.Models
         public int ChunkIndex { get; set; }
         public string Quote { get; set; }
         public string Relevance { get; set; }
+        public int Score { get; set; }
     }
 }

@@ -260,17 +260,5 @@ namespace RetrievalService.Services
             }
             return Math.Abs(hash);
         }
-
-        // Helper classes za deserijalizaciju
-        private class ParsedData
-        {
-            public ParsedChunk[] Chunks { get; set; }
-        }
-
-        private class ParsedChunk
-        {
-            public int Index { get; set; }
-            public string Text { get; set; }
-        }
     }
 }

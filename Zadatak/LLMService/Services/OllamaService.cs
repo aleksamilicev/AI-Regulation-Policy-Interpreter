@@ -25,16 +25,12 @@ namespace LLMService.Services
 
         public async Task<LLMResponse> GenerateResponseAsync(string query, string[] contextChunks, string systemPrompt = null)
         {
-            // 1. Proveri da li ima dovoljno konteksta
             bool hasSufficientContext = HasSufficientContext(query, contextChunks);
 
-            // 2. Sastavi enhanced prompt sa uputstvima za citiranje
-            var prompt = BuildEnhancedPrompt(query, contextChunks, systemPrompt, hasSufficientContext);
+            var prompt = BuildPrompt(query, contextChunks, hasSufficientContext);
 
             Console.WriteLine($"[LLM] Sending prompt to Ollama (length: {prompt.Length} chars)");
-            Console.WriteLine($"[LLM] Sufficient context: {hasSufficientContext}");
 
-            // 3. Pozovi Ollama API
             var requestBody = new
             {
                 model = Model,
@@ -42,7 +38,7 @@ namespace LLMService.Services
                 stream = false,
                 options = new
                 {
-                    temperature = 0.1,  // NISKA temperatura = manje kreativnosti, više preciznosti
+                    temperature = 0.1,
                     top_p = 0.9,
                     top_k = 40
                 }
@@ -55,17 +51,16 @@ namespace LLMService.Services
             response.EnsureSuccessStatusCode();
 
             var responseJson = await response.Content.ReadAsStringAsync();
-            Console.WriteLine($"[LLM] Received response from Ollama");
-
             var ollamaResponse = JsonSerializer.Deserialize<OllamaResponse>(responseJson, new JsonSerializerOptions
             {
                 PropertyNameCaseInsensitive = true
             });
 
             var answer = ollamaResponse.Response?.Trim() ?? "No response generated";
+            Console.WriteLine($"[LLM] Answer length: {answer.Length} chars");
 
-            // 4. Ekstraktuj citate iz odgovora
-            var citations = ExtractCitations(answer, contextChunks);
+            // Match which chunks were actually used based on overlap with the answer
+            var citations = MatchCitationsToAnswer(answer, contextChunks);
 
             return new LLMResponse
             {
@@ -77,215 +72,211 @@ namespace LLMService.Services
             };
         }
 
-        /// <summary>
-        /// Proverava da li kontekst sadrži dovoljno informacija za odgovor
-        /// </summary>
         private bool HasSufficientContext(string query, string[] contextChunks)
         {
             if (contextChunks == null || contextChunks.Length == 0)
                 return false;
 
-            // Proveri da li bar jedan chunk sadrži neke ključne reči iz query-ja
             var queryWords = query.ToLower()
                 .Split(new[] { ' ', ',', '.', '?', '!' }, StringSplitOptions.RemoveEmptyEntries)
-                .Where(w => w.Length > 3) // Ignoriši kratke reči
+                .Where(w => w.Length > 3)
                 .ToHashSet();
 
             if (queryWords.Count == 0)
-                return true; // Ako nema ključnih reči, smatramo da je OK
+                return true;
 
-            int chunksWithMatches = 0;
-            foreach (var chunk in contextChunks)
+            return contextChunks.Any(chunk =>
             {
                 var chunkLower = chunk.ToLower();
                 int matches = queryWords.Count(word => chunkLower.Contains(word));
-
-                if (matches >= Math.Max(1, queryWords.Count / 3)) // Bar 1/3 ključnih reči
-                {
-                    chunksWithMatches++;
-                }
-            }
-
-            return chunksWithMatches > 0;
+                return matches >= Math.Max(1, queryWords.Count / 3);
+            });
         }
 
-        /// <summary>
-        /// Pravi enhanced prompt sa instrukcijama za citiranje
-        /// </summary>
-        private string BuildEnhancedPrompt(string query, string[] contextChunks, string systemPrompt, bool hasSufficientContext)
+        private string BuildPrompt(string query, string[] contextChunks, bool hasSufficientContext)
         {
             var sb = new StringBuilder();
 
-            sb.AppendLine("Ti si AI asistent specijalizovan za analizu pravnih dokumenata.");
+            sb.AppendLine("Ti si AI asistent specijalizovan za analizu pravnih dokumenata na srpskom jeziku.");
             sb.AppendLine();
-            sb.AppendLine("═══════════════════════════════════════════════════════");
-            sb.AppendLine("STROGA PRAVILA - OBAVEZNO POŠTUJ:");
-            sb.AppendLine("═══════════════════════════════════════════════════════");
+            sb.AppendLine("PRAVILA:");
+            sb.AppendLine("1. Odgovaraj ISKLJUČIVO na osnovu dostavljenog konteksta — ne koristi sopstveno znanje.");
+            sb.AppendLine("2. Ako odgovor nije u kontekstu, napiši: 'Na osnovu dostupnog konteksta ne mogu odgovoriti.'");
+            sb.AppendLine("3. Daj DETALJAN i KONKRETAN odgovor — navedi definiciju, kategorije, obaveze i primere iz konteksta.");
+            sb.AppendLine("4. Koristi srpski jezik ispravno. Piši 'člana' (ne 'članka').");
+            sb.AppendLine("5. Kada navodiš direktno iz teksta zakona, koristi navodnike.");
+            sb.AppendLine("6. Strukturiraj odgovor jasno — koristi pasuse ili nabrajanje gde je prikladno.");
             sb.AppendLine();
-            sb.AppendLine("1. ODGOVARAJ ISKLJUČIVO NA OSNOVU DOSTAVLJENOG KONTEKSTA");
-            sb.AppendLine("   - NE koristi svoje predznanje");
-            sb.AppendLine("   - NE izmišljaj informacije");
-            sb.AppendLine("   - Ako odgovor nije u kontekstu: 'Na osnovu dostupnog konteksta ne mogu odgovoriti.'");
-            sb.AppendLine();
-            sb.AppendLine("2. CITIRANJE:");
-            sb.AppendLine("   - UVEK navedi [Chunk X] odmah nakon informacije");
-            sb.AppendLine("   - Primer: IKT sistem je tehnološka celina [Chunk 1].");
-            sb.AppendLine();
-            sb.AppendLine("3. CITATI:");
-            sb.AppendLine("   - Kada citiraš direktno, koristi navodnike");
-            sb.AppendLine("   - Drži citate kratkim (max 15-20 reči)");
-            sb.AppendLine("   - Primer: Prema zakonu, IKT sistem je \"tehnološko-organizaciona celina\" [Chunk 1].");
-            sb.AppendLine();
-            sb.AppendLine("4. ZA PITANJA SA 'ŠTA JE' ili 'ŠTA SU':");
-            sb.AppendLine("   - Prvo pronađi DEFINICIJU u kontekstu");
-            sb.AppendLine("   - Citiraj TAČNU definiciju iz propisa");
-            sb.AppendLine("   - Ne parafraziraj ako postoji direktna definicija");
-            sb.AppendLine();
-            sb.AppendLine("5. ODGOVARAJ NA SRPSKOM JEZIKU");
-            sb.AppendLine();
-            sb.AppendLine("═══════════════════════════════════════════════════════");
-            sb.AppendLine();
-            sb.AppendLine("KONTEKST (sortirano po relevantnosti):");
+            sb.AppendLine("KONTEKST:");
             sb.AppendLine();
 
             for (int i = 0; i < contextChunks.Length; i++)
             {
-                sb.AppendLine($"[Chunk {i + 1}]");
-                sb.AppendLine("───────────────────────────────────────────────────────");
+                sb.AppendLine($"--- Chunk {i + 1} ---");
                 sb.AppendLine(contextChunks[i]);
-                sb.AppendLine("───────────────────────────────────────────────────────");
                 sb.AppendLine();
             }
 
-            sb.AppendLine("═══════════════════════════════════════════════════════");
             sb.AppendLine($"PITANJE: {query}");
-            sb.AppendLine("═══════════════════════════════════════════════════════");
             sb.AppendLine();
-            sb.AppendLine("ODGOVOR (sa citatima i referencama):");
+            sb.AppendLine("ODGOVOR:");
 
             return sb.ToString();
         }
 
         /// <summary>
-        /// Ekstraktuje citacije iz LLM odgovora
+        /// Determines which chunks were actually used in the answer by measuring
+        /// keyword overlap between the LLM answer and each chunk.
+        /// Only chunks with meaningful overlap are shown as citations.
         /// </summary>
-        private List<Citation> ExtractCitations(string answer, string[] contextChunks)
+        private List<Citation> MatchCitationsToAnswer(string answer, string[] contextChunks)
         {
             var citations = new List<Citation>();
 
             if (contextChunks == null || contextChunks.Length == 0)
                 return citations;
 
-            // Traži [Chunk X] reference u odgovoru
+            // Tokenize the answer into meaningful words (length > 3, ignore stopwords)
+            var stopwords = new HashSet<string> {
+                "koje", "koji", "koja", "kao", "što", "kako", "kada", "gdje", "gde",
+                "biti", "jest", "nije", "also", "that", "this", "with", "from",
+                "njihov", "njihova", "njihove", "ovaj", "ova", "ovo", "samo",
+                "odnosno", "prema", "između", "kroz", "radi", "toga", "tome"
+            };
+
+            var answerWords = answer.ToLower()
+                .Split(new[] { ' ', '\n', '\r', ',', '.', '!', '?', ':', ';', '"', '(', ')' },
+                    StringSplitOptions.RemoveEmptyEntries)
+                .Select(w => w.Trim('a', 'e', 'i', 'o', 'u'))
+                .Where(w => w.Length > 3 && !stopwords.Contains(w))
+                .ToHashSet();
+
+            Console.WriteLine($"[Citations] Answer word count: {answerWords.Count}");
+
             for (int i = 0; i < contextChunks.Length; i++)
             {
-                var chunkNum = i + 1;
-                var citationPattern = $"[Chunk {chunkNum}]";
+                var chunkWords = contextChunks[i].ToLower()
+                    .Split(new[] { ' ', '\n', '\r', ',', '.', '!', '?', ':', ';', '"', '(', ')' },
+                        StringSplitOptions.RemoveEmptyEntries)
+                    .Select(w => w.Trim('a', 'e', 'i', 'o', 'u'))
+                    .Where(w => w.Length > 3 && !stopwords.Contains(w))
+                    .ToList();
 
-                if (answer.Contains(citationPattern, StringComparison.OrdinalIgnoreCase))
+                if (chunkWords.Count == 0) continue;
+
+                // Count how many unique chunk words appear in the answer
+                var uniqueChunkWords = chunkWords.ToHashSet();
+                int overlap = uniqueChunkWords.Count(w => answerWords.Contains(w));
+                float overlapRatio = (float)overlap / answerWords.Count;
+
+                float definitionBoost = 0;
+
+                var chunkLower = contextChunks[i].ToLower();
+
+                if (chunkLower.Contains("značenje") ||
+                    chunkLower.Contains("predstavlja") ||
+                    chunkLower.Contains("definiše") ||
+                    chunkLower.Contains("u smislu ovog zakona"))
                 {
-                    // Pronađi relevantan citat iz chunk-a
-                    var quote = ExtractRelevantQuote(contextChunks[i], 150);
+                    definitionBoost = 0.05f;
+                }
 
+                overlapRatio += definitionBoost;
+
+                Console.WriteLine($"[Citations] Chunk {i + 1}: overlap={overlap}/{uniqueChunkWords.Count} ({overlapRatio:P0})");
+
+                // Threshold: at least 35% of chunk's unique words appear in the answer
+                // AND at least 4 words overlap (prevents false positives on short chunks)
+                if (overlapRatio >= 0.35f && overlap >= 3)
+                {
+                    var quote = ExtractBestQuote(contextChunks[i], 220);
                     citations.Add(new Citation
                     {
                         ChunkIndex = i,
                         Quote = quote,
-                        Relevance = $"Referenced as [Chunk {chunkNum}] in answer"
+                        Score = overlap,
+                        Relevance = $"Chunk {i + 1} — {overlap} zajedničkih reči sa odgovorom ({overlapRatio:P0})"
                     });
+
+                    Console.WriteLine($"[Citations] ✓ Chunk {i + 1} matched as citation");
+                }
+                else
+                {
+                    Console.WriteLine($"[Citations] ✗ Chunk {i + 1} skipped (below threshold)");
                 }
             }
 
+            // Sort by chunk index for consistent display
+            citations = citations
+            .OrderByDescending(c => c.Score)
+            .ToList();
+
+            Console.WriteLine($"[Citations] Total: {citations.Count} citations");
             return citations;
         }
 
         /// <summary>
-        /// Ekstraktuje relevantan citat iz chunk-a (prvih N karaktera)
+        /// Extracts the most meaningful representative quote from a chunk.
+        /// Priority: definition sentence > article opener > first sentence > truncated start.
         /// </summary>
-        private string ExtractRelevantQuote(string chunk, int maxLength)
+        private string ExtractBestQuote(string chunk, int maxLength)
         {
             if (string.IsNullOrWhiteSpace(chunk))
                 return "";
 
             chunk = chunk.Trim();
+            var sentences = SplitIntoSentences(chunk);
 
-            // Pattern 1: Ako chunk sadrži definiciju (npr. "je" ili "predstavlja")
-            var definitionPatterns = new[]
+            // Priority 1: Sentence containing a definition verb
+            foreach (var sentence in sentences)
             {
-        @"(\w+\s+(?:je|predstavlja|su|označava|obuhvata))\s+([^.;]+)",
-        @"(\d+\)\s*\w+[^-]+-[^-]+-\w+\s+\([^\)]+\))\s+je\s+([^;]+)"
-    };
-
-            foreach (var pattern in definitionPatterns)
-            {
-                var match = System.Text.RegularExpressions.Regex.Match(chunk, pattern);
-                if (match.Success && match.Length <= maxLength)
+                var lower = sentence.ToLower();
+                if (lower.Contains(" je ") || lower.Contains(" su ") ||
+                    lower.Contains("predstavlja") || lower.Contains("obuhvata") ||
+                    lower.Contains("označava") || lower.Contains("podrazumeva"))
                 {
-                    // Vraća definiciju (npr. "IKT sistem je tehnološko-organizaciona celina koja...")
-                    var quote = match.Value.Trim();
-                    if (quote.Length > maxLength)
-                    {
-                        quote = quote.Substring(0, maxLength);
-                        var lastSpace = quote.LastIndexOf(' ');
-                        if (lastSpace > 0)
-                            quote = quote.Substring(0, lastSpace);
-                        quote += "...";
-                    }
-                    return quote;
+                    return TruncateToLength(sentence.Trim(), maxLength);
                 }
             }
 
-            // Pattern 2: Ako chunk počinje sa "Član X."
-            var memberPattern = new System.Text.RegularExpressions.Regex(@"^Član \d+\.\s*");
-            var memberMatch = memberPattern.Match(chunk);
-
+            // Priority 2: Line starting with "Član X."
+            var memberMatch = System.Text.RegularExpressions.Regex.Match(
+                chunk, @"^Član \d+\.[^\n]*",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
             if (memberMatch.Success)
-            {
-                // Uzmi prvu rečenicu nakon "Član X."
-                var afterMember = chunk.Substring(memberMatch.Length).Trim();
+                return TruncateToLength(memberMatch.Value.Trim(), maxLength);
 
-                // Pronađi prvu tačku
-                var firstPeriod = afterMember.IndexOf('.');
-                if (firstPeriod > 0 && firstPeriod <= maxLength)
-                {
-                    return memberMatch.Value.TrimEnd() + " " + afterMember.Substring(0, firstPeriod + 1);
-                }
+            // Priority 3: First sentence
+            if (sentences.Count > 0)
+                return TruncateToLength(sentences[0].Trim(), maxLength);
 
-                // Ako je prva rečenica predugačka, uzmi maxLength
-                var preview = afterMember.Length <= maxLength
-                    ? afterMember
-                    : afterMember.Substring(0, maxLength);
-
-                var lastSpace = preview.LastIndexOf(' ');
-                if (lastSpace > 0)
-                    preview = preview.Substring(0, lastSpace);
-
-                return $"{memberMatch.Value.TrimEnd()} {preview}...";
-            }
-
-            // Fallback: Prva rečenica ili prvih maxLength karaktera
-            var firstSentence = chunk.IndexOf('.');
-            if (firstSentence > 0 && firstSentence <= maxLength)
-            {
-                return chunk.Substring(0, firstSentence + 1);
-            }
-
-            if (chunk.Length <= maxLength)
-                return chunk;
-
-            var truncated = chunk.Substring(0, maxLength);
-            var lastSpaceIndex = truncated.LastIndexOf(' ');
-
-            if (lastSpaceIndex > 0)
-                truncated = truncated.Substring(0, lastSpaceIndex);
-
-            return truncated + "...";
+            return TruncateToLength(chunk, maxLength);
         }
 
-        private class OllamaResponse
+        private List<string> SplitIntoSentences(string text)
         {
-            public string Response { get; set; }
-            public int? EvalCount { get; set; }
+            var results = new List<string>();
+            var parts = System.Text.RegularExpressions.Regex.Split(text, @"(?<=[.;])\s+");
+            foreach (var p in parts)
+            {
+                var trimmed = p.Trim();
+                if (!string.IsNullOrWhiteSpace(trimmed))
+                    results.Add(trimmed);
+            }
+            return results;
+        }
+
+        private string TruncateToLength(string text, int maxLength)
+        {
+            if (text.Length <= maxLength)
+                return text;
+
+            var truncated = text.Substring(0, maxLength);
+            var lastSpace = truncated.LastIndexOf(' ');
+            if (lastSpace > 0)
+                truncated = truncated.Substring(0, lastSpace);
+
+            return truncated + "...";
         }
     }
 }

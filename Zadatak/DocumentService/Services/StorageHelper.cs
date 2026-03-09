@@ -183,16 +183,4 @@ namespace DocumentService.Services
         }
 
     }
-
-    public class ParsedData
-    {
-        public string VersionId { get; set; }
-        public ParsedChunk[] Chunks { get; set; }
-    }
-
-    public class ParsedChunk
-    {
-        public int Index { get; set; }
-        public string Text { get; set; }
-    }
 }

@@ -223,6 +223,7 @@ namespace Client.Controllers
         }
         #endregion
 
+        #region Document Service
         // GET: /Home/Upload
         public IActionResult Upload()
         {
@@ -415,5 +416,6 @@ namespace Client.Controllers
         {
             return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
         }
+        #endregion
     }
 }
